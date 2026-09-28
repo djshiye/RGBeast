@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="rgbeast">
+  <schema id="io.github.djshiye.RGBeast" path="/io/github/djshiye/RGBeast/">
+    <key name="window-width" type="i">
+      <default>980</default>
+      <summary>Window width</summary>
+    </key>
+    <key name="window-height" type="i">
+      <default>720</default>
+      <summary>Window height</summary>
+    </key>
+    <key name="window-maximized" type="b">
+      <default>false</default>
+      <summary>Window maximised</summary>
+    </key>
+    <key name="last-device" type="s">
+      <default>''</default>
+      <summary>Device shown when the window opens</summary>
+    </key>
+    <key name="animate-preview" type="b">
+      <default>true</default>
+      <summary>Animate the lighting preview</summary>
+      <description>The preview plays the selected effect. It always stops when the system asks for reduced motion.</description>
+    </key>
+  </schema>
+</schemalist>

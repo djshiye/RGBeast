@@ -1,0 +1,16 @@
+[package]
+name = "rgbeast-core"
+description = "Device model, protocols and transports for RGBeast RGB control"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+hidapi = { version = "2.6", default-features = false, features = ["linux-native"] }
+i2cdev = "0.6"

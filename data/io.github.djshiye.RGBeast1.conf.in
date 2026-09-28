@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <!-- Only the daemon's user may own the name. Anyone may talk to it; polkit decides what they may do. -->
+  <policy user="@rgbeast_user@">
+    <allow own="io.github.djshiye.RGBeast1"/>
+  </policy>
+  <policy context="default">
+    <allow send_destination="io.github.djshiye.RGBeast1"/>
+    <allow receive_sender="io.github.djshiye.RGBeast1"/>
+  </policy>
+</busconfig>

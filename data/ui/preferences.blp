@@ -1,0 +1,43 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $RGBeastPreferences : Adw.PreferencesDialog {
+  title: _("Preferences");
+  content-width: 480;
+
+  Adw.PreferencesPage {
+    Adw.PreferencesGroup {
+      title: _("Preview");
+
+      Adw.SwitchRow animate_row {
+        title: _("Animate Effects");
+        subtitle: _("Play the selected effect in the preview. Always off when the system asks for reduced motion.");
+      }
+    }
+
+    Adw.PreferencesGroup {
+      title: _("Lighting Service");
+
+      Adw.SwitchRow resume_row {
+        title: _("Restore After Sleep");
+        subtitle: _("Re-apply the lighting when the computer wakes up");
+      }
+
+      Adw.ActionRow version_row {
+        title: _("Service Version");
+        subtitle: "…";
+        subtitle-selectable: true;
+      }
+
+      Adw.ExpanderRow log_row {
+        title: _("Detection Log");
+        subtitle: _("What the service found and skipped");
+      }
+    }
+
+    Adw.PreferencesGroup headers_group {
+      title: _("Addressable Headers");
+      description: _("How many LEDs are connected to each header. Arctic P12 A-RGB fans have 12 LEDs each, so three daisy-chained fans are 36.");
+    }
+  }
+}

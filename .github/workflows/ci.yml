@@ -1,0 +1,72 @@
+name: RGBeast CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  fedora:
+    name: Build and test (Fedora ${{ matrix.release }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ["44", "rawhide"]
+    container:
+      image: fedora:${{ matrix.release }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          dnf install -y rust cargo clippy rustfmt meson ninja-build gcc \
+            gtk4-devel libadwaita-devel systemd-devel blueprint-compiler \
+            desktop-file-utils appstream gettext rpm-build rpmdevtools rpmlint \
+            cargo-rpm-macros systemd-rpm-macros python3 tar xz dbus-daemon
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Unit tests
+        run: cargo test --workspace
+
+      - name: Daemon smoke test (session bus, simulated devices)
+        run: |
+          cargo build -p rgbeastd
+          dbus-run-session -- sh -c '
+            ./target/debug/rgbeastd --session --simulate --state-dir "$RUNNER_TEMP/state" &
+            sleep 2
+            busctl --user call io.github.djshiye.RGBeast1 /io/github/djshiye/RGBeast1 io.github.djshiye.RGBeast1.Manager ListDevices | grep -q sim:fury
+            kill %1'
+
+      - name: Meson build and validation tests
+        run: |
+          meson setup builddir
+          meson compile -C builddir
+          meson test -C builddir --print-errorlogs
+          DESTDIR="$PWD/stage" meson install -C builddir
+
+      - name: Build RPM
+        run: |
+          VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          DIST="$RUNNER_TEMP/dist"; mkdir -p "$DIST"
+          cargo vendor --locked "$DIST/vendor" > /dev/null
+          tar -C "$DIST" -cJf "$DIST/rgbeast-${VERSION}-vendor.tar.xz" vendor
+          tar --no-wildcards-match-slash \
+              --exclude=./target --exclude=./builddir --exclude=./stage --exclude=./.git \
+              --transform "s,^\./,rgbeast-${VERSION}/," -czf "$DIST/rgbeast-${VERSION}.tar.gz" .
+          rpmdev-setuptree
+          cp "$DIST"/rgbeast-${VERSION}*.tar.* ~/rpmbuild/SOURCES/
+          rpmbuild -ba build-aux/rgbeast.spec
+          rpmlint build-aux/rgbeast.spec ~/rpmbuild/RPMS/x86_64/rgbeast-*.rpm || true
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: rgbeast-rpm-fedora-${{ matrix.release }}
+          path: ~/rpmbuild/RPMS/x86_64/rgbeast-*.rpm
+          if-no-files-found: error

@@ -1,0 +1,33 @@
+.TH RGBEASTD 8 "September 2026" "rgbeastd 1.0.0" "System Administration"
+.SH NAME
+rgbeastd \- RGBeast RGB lighting daemon
+.SH SYNOPSIS
+.B rgbeastd
+.RI [ \-\-session ]
+.RI [ \-\-simulate ]
+.RI [ \-\-scan ]
+.RI [ \-\-state\-dir " DIR" ]
+.SH DESCRIPTION
+.B rgbeastd
+is the only process that opens the USB HID and I2C device nodes of the
+lighting controllers. It runs as the unprivileged system user
+.I rgbeast
+under systemd with a strict sandbox, publishes
+.I io.github.djshiye.RGBeast1
+on the system bus, checks every change with polkit, stores the last state
+in
+.I /var/lib/rgbeast/state.json
+and re-applies it at start and after the machine wakes from sleep.
+.SH OPTIONS
+.TP
+.B \-\-scan
+Print what would be detected and exit. Useful for support requests.
+.TP
+.B \-\-simulate
+Serve three simulated devices instead of real hardware.
+.TP
+.B \-\-session
+Register on the session bus instead of the system bus (development only;
+polkit is skipped).
+.SH SEE ALSO
+.BR rgbeast (1)

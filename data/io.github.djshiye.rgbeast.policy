@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>RGBeast</vendor>
+  <vendor_url>https://github.com/djshiye/RGBeast</vendor_url>
+  <icon_name>io.github.djshiye.RGBeast</icon_name>
+
+  <action id="io.github.djshiye.rgbeast.control">
+    <description>Control RGB lighting</description>
+    <message>Authentication is required to change the lighting of this computer</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+</policyconfig>

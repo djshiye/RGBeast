@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.djshiye.RGBeast</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>RGBeast</name>
+  <summary>Control the RGB lighting of your PC</summary>
+  <description>
+    <p>RGBeast controls the lighting of ASUS Aura motherboards and the addressable fans plugged into them, Kingston Fury DDR5 memory and ASUS graphics cards, from one window that follows the GNOME style.</p>
+    <ul>
+      <li>Live preview of every LED, colour wheel, brightness, hardware effects with speed and direction</li>
+      <li>One click to light everything the same colour, or scenes that set every device at once</li>
+      <li>Lighting restored at boot and after sleep by a small system service</li>
+      <li>The app never touches hardware: a sandboxed daemon does, behind polkit</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.djshiye.RGBeast.desktop</launchable>
+  <provides>
+    <binary>rgbeast</binary>
+  </provides>
+  <url type="homepage">https://github.com/djshiye/RGBeast</url>
+  <url type="bugtracker">https://github.com/djshiye/RGBeast/issues</url>
+  <url type="vcs-browser">https://github.com/djshiye/RGBeast</url>
+  <developer id="io.github.djshiye">
+    <name>djshiye</name>
+  </developer>
+  <content_rating type="oars-1.1"/>
+  <branding>
+    <color type="primary" scheme_preference="light">#dc8add</color>
+    <color type="primary" scheme_preference="dark">#613583</color>
+  </branding>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <releases>
+    <release version="1.0.0" date="2026-09-28">
+      <description>
+        <p>First release: ASUS Aura USB motherboards and addressable headers, Kingston Fury DDR5, ASUS ENE graphics cards.</p>
+      </description>
+    </release>
+  </releases>
+</component>

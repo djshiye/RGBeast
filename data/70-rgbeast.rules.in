@@ -1,0 +1,12 @@
+# RGBeast: give the daemon's group access to the lighting controllers it drives.
+# The desktop session never gets these nodes; only user "@rgbeast_user@" does.
+
+# ASUS Aura USB mainboard controllers (hidraw)
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18f3", GROUP="@rgbeast_user@", MODE="0660"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1939", GROUP="@rgbeast_user@", MODE="0660"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="19af", GROUP="@rgbeast_user@", MODE="0660"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1aa6", GROUP="@rgbeast_user@", MODE="0660"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1bed", GROUP="@rgbeast_user@", MODE="0660"
+
+# SMBus / I2C adapters: chipset SMBus (DRAM) and the GPU's lighting bus.
+SUBSYSTEM=="i2c-dev", GROUP="@rgbeast_user@", MODE="0660"

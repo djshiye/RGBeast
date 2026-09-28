@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=io.github.djshiye.RGBeast1
+Exec=/bin/false
+User=@rgbeast_user@
+SystemdService=rgbeastd.service

@@ -1,0 +1,14 @@
+data/io.github.djshiye.RGBeast.desktop.in
+data/io.github.djshiye.RGBeast.metainfo.xml.in
+data/io.github.djshiye.RGBeast.gschema.xml
+data/ui/window.blp
+data/ui/device_page.blp
+data/ui/device_row.blp
+data/ui/preferences.blp
+crates/rgbeast/src/application.rs
+crates/rgbeast/src/window.rs
+crates/rgbeast/src/preferences.rs
+crates/rgbeast/src/scenes.rs
+crates/rgbeast/src/ui/device_page.rs
+crates/rgbeast/src/ui/device_row.rs
+crates/rgbeast/src/widgets/led_preview.rs

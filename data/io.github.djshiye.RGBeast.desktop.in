@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=RGBeast
+Comment=Control the RGB lighting of your PC
+Exec=rgbeast
+Icon=io.github.djshiye.RGBeast
+Terminal=false
+Type=Application
+Categories=Settings;HardwareSettings;GTK;GNOME;
+Keywords=rgb;led;lighting;aura;argb;fans;gpu;ram;
+StartupNotify=true
+DBusActivatable=false

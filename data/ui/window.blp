@@ -1,0 +1,208 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $RGBeastWindow : Adw.ApplicationWindow {
+  title: _("RGBeast");
+  default-width: 980;
+  default-height: 720;
+  width-request: 360;
+  height-request: 480;
+
+  Adw.Breakpoint {
+    condition ("max-width: 680sp")
+    setters {
+      split_view.collapsed: true;
+    }
+  }
+
+  content: Adw.ToastOverlay toast_overlay {
+    child: Adw.NavigationSplitView split_view {
+      min-sidebar-width: 250;
+      max-sidebar-width: 320;
+      sidebar-width-fraction: 0.28;
+
+      sidebar: Adw.NavigationPage {
+        title: _("RGBeast");
+        tag: "sidebar";
+
+        child: Adw.ToolbarView {
+          styles ["sidebar-pane"]
+
+          [top]
+          Adw.HeaderBar {
+            [end]
+            MenuButton {
+              icon-name: "open-menu-symbolic";
+              menu-model: primary_menu;
+              primary: true;
+              tooltip-text: _("Main Menu");
+            }
+          }
+
+          content: ScrolledWindow {
+            hscrollbar-policy: never;
+
+            child: Box {
+              orientation: vertical;
+
+              Label {
+                label: _("Devices");
+                xalign: 0;
+                styles ["section-title", "sidebar-heading"]
+              }
+
+              ListBox device_list {
+                selection-mode: single;
+                styles ["device-list"]
+              }
+
+              Label {
+                label: _("Scenes");
+                xalign: 0;
+                styles ["section-title", "sidebar-heading"]
+              }
+
+              ListBox scene_list {
+                selection-mode: none;
+                styles ["device-list"]
+              }
+            };
+          };
+
+          [bottom]
+          Box status_bar {
+            spacing: 8;
+            styles ["status-bar"]
+
+            Image status_icon {
+              icon-name: "emblem-ok-symbolic";
+              pixel-size: 14;
+              styles ["dim-label"]
+            }
+
+            Label status_label {
+              xalign: 0;
+              ellipsize: end;
+              hexpand: true;
+              styles ["caption", "dim-label"]
+            }
+          }
+        };
+      };
+
+      content: Adw.NavigationPage content_page {
+        title: _("Lighting");
+        tag: "content";
+
+        child: Adw.ToolbarView {
+          [top]
+          Adw.HeaderBar content_header {
+            [end]
+            Button save_button {
+              icon-name: "document-save-symbolic";
+              tooltip-text: _("Store as Power-On Lighting");
+              visible: false;
+              styles ["flat"]
+            }
+
+            [end]
+            Box applied_box {
+              spacing: 6;
+              valign: center;
+              opacity: 0;
+
+              Box {
+                valign: center;
+                styles ["applied-dot"]
+              }
+
+              Label {
+                label: _("Applied");
+                styles ["caption", "dim-label"]
+              }
+            }
+          }
+
+          content: Stack view_stack {
+            transition-type: crossfade;
+            transition-duration: 150;
+
+            StackPage {
+              name: "loading";
+
+              child: Adw.StatusPage {
+                title: _("Connecting to the Lighting Service");
+
+                child: Spinner {
+                  spinning: true;
+                  halign: center;
+                  width-request: 32;
+                  height-request: 32;
+                };
+              };
+            }
+
+            StackPage {
+              name: "disconnected";
+
+              child: Adw.StatusPage disconnected_page {
+                icon-name: "network-offline-symbolic";
+                title: _("Lighting Service Not Running");
+                description: _("RGBeast talks to a small system service, rgbeastd, which is the only part that touches the hardware. Start it with “sudo systemctl enable --now rgbeastd”, then try again.");
+
+                child: Button retry_button {
+                  label: _("Try Again");
+                  halign: center;
+                  styles ["pill", "suggested-action"]
+                };
+              };
+            }
+
+            StackPage {
+              name: "empty";
+
+              child: Adw.StatusPage empty_page {
+                icon-name: "io.github.djshiye.RGBeast-symbolic";
+                title: _("No Lighting Devices Found");
+                description: _("Nothing answered on USB or SMBus. Check that the i2c-dev module is loaded and that the daemon has access to the device nodes, then scan again.");
+
+                child: Button rescan_button {
+                  label: _("Scan Again");
+                  halign: center;
+                  styles ["pill", "suggested-action"]
+                };
+              };
+            }
+
+            StackPage {
+              name: "device";
+
+              child: Adw.Bin device_bin {};
+            }
+          };
+        };
+      };
+    };
+  };
+}
+
+menu primary_menu {
+  section {
+    item {
+      label: _("_Scan for Devices");
+      action: "app.rescan";
+    }
+
+    item {
+      label: _("_Preferences");
+      action: "app.preferences";
+    }
+  }
+
+  section {
+    item {
+      label: _("_About RGBeast");
+      action: "app.about";
+    }
+  }
+}

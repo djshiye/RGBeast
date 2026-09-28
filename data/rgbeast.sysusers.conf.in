@@ -1,0 +1,2 @@
+# Unprivileged system user for the RGBeast lighting daemon.
+u @rgbeast_user@ - "RGBeast lighting daemon" /var/lib/rgbeast -

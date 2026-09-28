@@ -1,0 +1,164 @@
+/* RGBeast: cards on Adwaita's semantic tokens. The chrome stays neutral so the
+ * only saturated colour on screen is the light the user chose.
+ * Only var(--…) colours and color-mix(): light, dark and accent follow the system. */
+
+headerbar {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.sidebar-pane {
+  background: mix(@view_fg_color, @window_bg_color, 0.92);
+}
+listbox.device-list {
+  background: transparent;
+  padding: 4px 8px 8px 8px;
+}
+listbox.device-list > row {
+  margin: 0 0 6px 0;
+  padding: 0;
+  border-radius: 14px;
+  background: @card_bg_color;
+  color: @view_fg_color;
+  box-shadow: 0 1px 2px alpha(black, 0.1),
+              0 0 0 1px alpha(@view_fg_color, 0.06);
+  transition: background 150ms ease-out, box-shadow 150ms ease-out;
+}
+listbox.device-list > row:hover {
+  background: mix(@view_fg_color, @card_bg_color, 0.94);
+  box-shadow: 0 2px 6px alpha(black, 0.14),
+              0 0 0 1px alpha(@view_fg_color, 0.08);
+}
+listbox.device-list > row:selected,
+listbox.device-list > row:selected:hover {
+  background: mix(@card_bg_color, @accent_bg_color, 0.14);
+  color: @view_fg_color;
+  box-shadow: 0 1px 2px alpha(black, 0.1),
+              0 0 0 1.5px alpha(@accent_bg_color, 0.6);
+}
+listbox.device-list > row:selected label { color: inherit; }
+listbox.device-list > row:selected .dim-label { opacity: 0.65; }
+
+.device-kind-icon {
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 11px;
+  background: alpha(@accent_bg_color, 0.14);
+  color: @accent_color;
+}
+.color-strip {
+  min-height: 4px;
+  border-radius: 999px;
+}
+.sidebar-heading {
+  padding: 14px 16px 4px 16px;
+}
+
+/* ── Editor ──────────────────────────────────────────────────────────────── */
+.card-section {
+  border-radius: 14px;
+  background: @card_bg_color;
+  padding: 16px;
+  box-shadow: 0 1px 2px alpha(black, 0.1),
+              0 0 0 1px alpha(@view_fg_color, 0.06);
+}
+.section-title {
+  font-weight: 600;
+  opacity: 0.55;
+  font-size: 0.85em;
+  letter-spacing: 0.04em;
+}
+.led-preview {
+  border-radius: 18px;
+  min-height: 200px;
+  background: #16171d;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+              0 1px 2px alpha(black, 0.2);
+}
+
+/* chips: pills that read as a segmented control without a heavy frame */
+flowbox.chips > flowboxchild {
+  padding: 0;
+  margin: 3px;
+  border-radius: 999px;
+}
+flowbox.chips > flowboxchild:focus {
+  outline: none;
+}
+flowbox.chips > flowboxchild:focus > button {
+  box-shadow: 0 0 0 3px alpha(@accent_bg_color, 0.25);
+}
+button.chip {
+  border-radius: 999px;
+  padding: 6px 14px;
+  min-height: 28px;
+  background: alpha(@view_fg_color, 0.05);
+  border: 1px solid alpha(@view_fg_color, 0.08);
+  box-shadow: none;
+  transition: background 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out;
+}
+button.chip:hover {
+  background: alpha(@view_fg_color, 0.09);
+}
+button.chip:checked {
+  background: alpha(@accent_bg_color, 0.18);
+  border-color: alpha(@accent_bg_color, 0.6);
+  color: @accent_color;
+  font-weight: 600;
+}
+
+/* swatches: round dots with a hairline ring, larger ring when selected */
+button.swatch {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  border: none;
+  box-shadow: 0 0 0 1px alpha(@view_fg_color, 0.14),
+              inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+}
+button.swatch:hover { transform: scale(1.08); }
+button.swatch:checked {
+  box-shadow: 0 0 0 2px @window_bg_color,
+              0 0 0 4px @accent_bg_color,
+              inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+button.swatch.color-slot {
+  min-width: 34px;
+  min-height: 34px;
+}
+entry.hex-entry {
+  border-radius: 999px;
+  min-height: 32px;
+}
+.hero-color {
+  border-radius: 12px;
+  min-height: 44px;
+  min-width: 44px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+              0 0 0 1px alpha(@view_fg_color, 0.1);
+}
+scale.brightness trough {
+  min-height: 8px;
+  border-radius: 999px;
+}
+.status-bar {
+  padding: 6px 12px;
+  border-top: 1px solid alpha(@view_fg_color, 0.07);
+}
+.applied-dot {
+  min-width: 8px;
+  min-height: 8px;
+  border-radius: 999px;
+  background: @success_color;
+  transition: opacity 400ms ease-out;
+}
+.scene-swatch {
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 11px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+              0 0 0 1px alpha(@view_fg_color, 0.1);
+}

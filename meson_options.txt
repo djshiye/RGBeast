@@ -1,0 +1,2 @@
+option('offline', type: 'boolean', value: false, description: 'Pass --offline to cargo (for RPM builds with vendored crates)')
+option('rgbeast_user', type: 'string', value: 'rgbeast', description: 'System user the daemon runs as')

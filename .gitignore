@@ -1,0 +1,7 @@
+target/
+builddir/
+stage/
+*.rpm
+!releases/*.rpm
+.cargo/
+vendor/

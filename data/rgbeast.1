@@ -1,0 +1,18 @@
+.TH RGBEAST 1 "September 2026" "rgbeast 1.0.0" "User Commands"
+.SH NAME
+rgbeast \- RGB lighting control for GNOME
+.SH SYNOPSIS
+.B rgbeast
+.SH DESCRIPTION
+.B RGBeast
+shows every lighting device the
+.BR rgbeastd (8)
+daemon found and lets you set colours, effects, brightness and speed, light
+everything the same colour, and save scenes. The app never touches hardware:
+all changes go through the daemon's D-Bus API and are authorised by polkit.
+.SH FILES
+.TP
+.I ~/.config/rgbeast/scenes.json
+Saved scenes.
+.SH SEE ALSO
+.BR rgbeastd (8)
