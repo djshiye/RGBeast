@@ -1,0 +1,19 @@
+#!/bin/sh
+# rgbeast-upgrade: install the newest RGBeast build from the GitHub repository.
+#
+# Every push to main builds an RPM on CI and attaches it to the rolling
+# "latest" release. The repository is private, so a plain DNF repository
+# cannot serve it; the GitHub CLI (gh, logged in) downloads it instead and
+# DNF installs it. Each build carries a higher release number, so this is a
+# real upgrade, never a downgrade.
+set -eu
+REPO=${RGBEAST_REPO:-djshiye/RGBeast}
+TAG=${1:-latest}
+command -v gh >/dev/null || { echo "rgbeast-upgrade: install the GitHub CLI first: sudo dnf install gh" >&2; exit 1; }
+dir=$(mktemp -d)
+trap 'rm -rf "$dir"' EXIT
+dist=$(rpm --eval '%{?dist}')
+gh release download "$TAG" --repo "$REPO" --pattern "rgbeast-*${dist}.x86_64.rpm" --dir "$dir"
+rpm=$(ls "$dir"/rgbeast-*.rpm | head -1)
+echo "Installing $(basename "$rpm")"
+exec sudo dnf upgrade --refresh=0 "$rpm"

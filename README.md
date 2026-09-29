@@ -67,6 +67,21 @@ a device is missing, use **Scan for Devices** (Ctrl+R) and check `docs/TESTING.m
 4. Pick a colour: the fans follow. To paint single lights or see the fans in the preview, set the
    header's LED count in **Preferences › Addressable Headers** (12 per Arctic fan).
 
+## Upgrading from the repository
+
+Every push to `main` builds the RPM on CI and attaches it to the rolling **latest** release. The
+repository is private, so DNF cannot read it as a repository; the installed `rgbeast-upgrade`
+command downloads the newest build with the GitHub CLI and lets DNF install it:
+
+```bash
+sudo dnf install gh && gh auth login     # once
+rgbeast-upgrade
+```
+
+Each CI build carries a higher release number (`1.0.1-1.<commit count>`), so DNF treats it as an
+upgrade. When the repository becomes public, the same RPMs can be served as a plain DNF
+repository from GitHub Pages instead.
+
 ## Build from source
 
 ```bash

@@ -50,6 +50,8 @@ First install on the machine
   Dynamic Lighting does (the controller's LampArray reports the board as a single lamp; nothing
   can count the LEDs on a WS2812 chain). The LED count is only needed for painting single lights
   and for the preview; a header of unknown length receives the primary colour in direct mode.
+- `rgbeast-upgrade` installs the newest CI build from the repository's rolling "latest" release;
+  CI numbers each build so DNF sees an upgrade.
 - New driver: Sapphire Nitro Glow V3 (Nitro+, Pure and Toxic cards, I2C address 0x28 on the
   card's own bus). Static colour with brightness, Rainbow, Spectrum Cycle, Runway and Serial with
   speed; state is read back at start. Discovery treats Sapphire cards as GPUs and names the model

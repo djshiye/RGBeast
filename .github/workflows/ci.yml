@@ -56,6 +56,8 @@ jobs:
       - name: Build RPM
         run: |
           VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          git config --global --add safe.directory "$PWD"
+          BUILD=$(git rev-list --count HEAD)
           DIST="$RUNNER_TEMP/dist"; mkdir -p "$DIST"
           cargo vendor --locked "$DIST/vendor" > /dev/null
           tar -C "$DIST" -cJf "$DIST/rgbeast-${VERSION}-vendor.tar.xz" vendor
@@ -64,7 +66,7 @@ jobs:
               --transform "s,^\./,rgbeast-${VERSION}/," -czf "$DIST/rgbeast-${VERSION}.tar.gz" .
           rpmdev-setuptree
           cp "$DIST"/rgbeast-${VERSION}*.tar.* ~/rpmbuild/SOURCES/
-          rpmbuild -ba build-aux/rgbeast.spec
+          rpmbuild -ba --define "release_suffix .$BUILD" build-aux/rgbeast.spec
           rpmlint build-aux/rgbeast.spec ~/rpmbuild/RPMS/x86_64/rgbeast-*.rpm || true
 
       - name: Upload RPM
@@ -73,3 +75,28 @@ jobs:
           name: rgbeast-rpm-fedora-${{ matrix.release }}
           path: ~/rpmbuild/RPMS/x86_64/rgbeast-*.rpm
           if-no-files-found: error
+
+  # Every push to main refreshes the rolling "latest" release with the Fedora
+  # 44 RPM, which `rgbeast-upgrade` installs on the target machine.
+  release:
+    name: Publish latest build
+    needs: fedora
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: rgbeast-rpm-fedora-44
+          path: dist
+      - name: Update the "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create latest dist/rgbeast-*.rpm \
+            --title "Latest build ($(git rev-parse --short HEAD))" \
+            --notes "Built from main at $(git rev-parse HEAD). Install with rgbeast-upgrade." \
+            --latest=false --prerelease

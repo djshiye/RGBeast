@@ -516,6 +516,10 @@ mod tests {
             BusRole::Other
         );
         assert_eq!(bus_role(&bus("i915 gmbus dpb", None)), BusRole::Other);
+        // The SMU buses are the card's power-management firmware: touching
+        // them wedged the SMU on the target machine. Never probed.
+        assert_eq!(bus_role(&bus("AMDGPU SMU 0", None)), BusRole::Other);
+        assert_eq!(bus_role(&bus("AMDGPU SMU 1", None)), BusRole::Other);
     }
 
     /// Mirrors the real layout: `bus/i2c/devices/i2c-7` is a symlink to

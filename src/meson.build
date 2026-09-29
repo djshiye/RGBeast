@@ -1,4 +1,5 @@
 cargo_script = find_program(meson.project_source_root() / 'build-aux' / 'cargo.sh')
+install_data(meson.project_source_root() / 'build-aux' / 'rgbeast-upgrade', install_dir: bindir, install_mode: 'rwxr-xr-x')
 
 cargo_build = custom_target('cargo-build',
   build_by_default: true,

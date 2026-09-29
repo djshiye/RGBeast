@@ -93,6 +93,15 @@ pkaction --verbose --action-id io.github.djshiye.rgbeast.control
 From another user's session (or over SSH), `busctl call io.github.djshiye.RGBeast1 ... SetState ...`
 must be refused with `AccessDenied`.
 
+## 6a. Never probe the GPU's SMU buses
+
+`i2c-N` adapters named `AMDGPU SMU 0` / `AMDGPU SMU 1` belong to the card's power-management
+firmware. Even a read-only `i2cdetect` on them made the SMU stop responding on the target machine
+(`amdgpu: SMU: No response`, `Failed to disable gfxoff!` every few seconds), after which every
+GPU-rendered application took ten seconds to open until a reboot. Discovery classifies those buses
+as `Other` and never opens them; `bus_role` has a test for it. Only the `AMDGPU DM i2c OEM bus`
+carries a lighting controller.
+
 ## 7. Screenshots and layout checks (debug builds)
 
 `rgbeast` in a debug build honours three environment variables: `RGBEAST_DEBUG_SIZE=WxH`,
