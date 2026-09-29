@@ -44,6 +44,9 @@ First install on the machine
   found or a node could not be opened, and SMBus permission problems are reported by name.
 - The graphics card in the target machine is a Sapphire RX 9070, not an ASUS one; the Detection
   Log now says which vendor a card is from when no ENE controller answers.
+- Fury detection tolerates one odd signature byte and paces its reads: on real Beast DDR5 sticks
+  the "R" register reads 0x02 (always on one stick, sometimes on the other) and single reads can
+  return 0xFFFF, which left one of two sticks undetected.
 
 ## 1.0.0 (2026-09-28)
 

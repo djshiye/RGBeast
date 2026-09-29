@@ -321,28 +321,42 @@ fn mode_def(id: &str) -> Result<&'static ModeDef> {
 
 /// Signature and model check at one address. Returns the model when a
 /// Fury controller answers. Leaves the transaction closed.
+///
+/// Real sticks are lenient about the signature: on the target machine the
+/// third register ("R") reads 0x02 on one stick and intermittently on the
+/// other, and single reads sometimes return 0xFFFF. So a stick counts when
+/// the first byte is "F", at least three of the four bytes match, and the
+/// model register holds a known code; every read is retried with pacing.
 pub fn probe<B: Smbus>(bus: &mut B, addr: u8) -> Option<Model> {
     if bus.write_byte_data(addr, REG_APPLY, BEGIN).is_err() {
         return None;
     }
     thread::sleep(DELAY);
-    let mut ok = true;
+    let mut matches = 0;
+    let mut first = false;
     for (i, expected) in b"FURY".iter().enumerate() {
         let mut got = None;
-        for _ in 0..3 {
+        for _ in 0..5 {
             if let Ok(w) = bus.read_word_data(addr, (i + 1) as u8)
                 && w != 0xFFFF
             {
                 got = Some((w >> 8) as u8);
                 break;
             }
-            thread::sleep(DELAY);
+            thread::sleep(DELAY * 2);
         }
-        if got != Some(*expected) {
-            ok = false;
-            break;
+        if i == 0 {
+            first = got == Some(*expected);
+            if !first {
+                break;
+            }
         }
+        if got == Some(*expected) {
+            matches += 1;
+        }
+        thread::sleep(DELAY);
     }
+    let ok = first && matches >= 3;
     let model = if ok {
         bus.read_word_data(addr, REG_MODEL)
             .ok()
@@ -715,9 +729,18 @@ mod tests {
         // Transaction was opened and closed on the probed stick.
         assert!(bus.ops.contains(&Op::WriteByteData(0x61, REG_APPLY, BEGIN)));
         assert!(bus.ops.contains(&Op::WriteByteData(0x61, REG_APPLY, END)));
+        // One odd signature byte is tolerated (seen on real Beast DDR5
+        // sticks: "R" reads 0x02); two are not, nor a wrong first byte.
+        let mut odd = bus_with_sticks(&[0x62], 0x15);
+        odd.regs.insert((0x62, 3), 0x02);
+        assert_eq!(probe(&mut odd, 0x62), Some(Model::Beast2Ddr5));
         let mut wrong = bus_with_sticks(&[0x62], 0x10);
         wrong.regs.insert((0x62, 2), b'X');
+        wrong.regs.insert((0x62, 3), b'X');
         assert_eq!(probe(&mut wrong, 0x62), None);
+        let mut not_f = bus_with_sticks(&[0x62], 0x10);
+        not_f.regs.insert((0x62, 1), b'X');
+        assert_eq!(probe(&mut not_f, 0x62), None);
         let mut unknown = bus_with_sticks(&[0x62], 0x77);
         assert_eq!(probe(&mut unknown, 0x62), None);
     }
