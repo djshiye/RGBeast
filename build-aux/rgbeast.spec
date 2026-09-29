@@ -30,6 +30,8 @@ Requires:       libadwaita%{?_isa} >= 1.5
 Requires:       hicolor-icon-theme
 Requires:       polkit
 Requires:       dbus-common
+# udev rule sets the device nodes' group ACL entry with setfacl
+Requires:       acl
 
 %description
 RGBeast controls the RGB lighting of ASUS Aura motherboards and the addressable
@@ -66,6 +68,8 @@ udevadm control --reload >/dev/null 2>&1 || :
 udevadm trigger --subsystem-match=hidraw --subsystem-match=i2c-dev >/dev/null 2>&1 || :
 udevadm settle --timeout=5 >/dev/null 2>&1 || :
 systemctl enable --now rgbeastd.service >/dev/null 2>&1 || :
+# On upgrade the service is already running: pick up the re-owned nodes.
+if [ $1 -gt 1 ]; then systemctl try-restart rgbeastd.service >/dev/null 2>&1 || : ; fi
 
 %preun
 %systemd_preun rgbeastd.service

@@ -39,7 +39,7 @@ sudo -u rgbeast /usr/libexec/rgbeastd --scan   # what the daemon sees, with its 
 | Message | Cause | Fix |
 |---|---|---|
 | `no I2C buses visible` | `i2c-dev` not loaded | `sudo modprobe i2c-dev`; the package's modules-load file handles reboots |
-| `cannot open /dev/hidraw*: Permission denied` | udev rule not applied yet | `sudo udevadm trigger --subsystem-match=hidraw` or replug; check `ls -l /dev/hidraw*` shows group `rgbeast` |
+| `cannot open /dev/hidraw*: Permission denied` | udev rule not applied yet, or the node carries an ACL whose `group::` entry is `---` (check with `getfacl`, not `ls`: with an ACL, `ls` shows the mask) | `sudo udevadm trigger --subsystem-match=hidraw --subsystem-match=i2c-dev` then `sudo systemctl restart rgbeastd`; the rule's `setfacl -m g::rw` fixes the group entry |
 | `i2c-N: ... Permission denied` | udev rule for i2c-dev not applied | `sudo udevadm trigger --subsystem-match=i2c-dev` |
 | `no ENE controller at 0x67` on the GPU bus | wrong bus, or the card's controller answers only after the driver initialises | note which buses were probed; try `i2cdetect -y <bus>` (as root) and look for `67` |
 | `unknown ENE controller 'XXXX'` | the card reports a device string this version does not know | send the string; adding it is one line in `crates/rgbeast-core/src/drivers/ene.rs` |

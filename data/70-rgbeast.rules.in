@@ -2,13 +2,18 @@
 # RGBeast itself never grants the desktop session access to these nodes; only
 # user "@rgbeast_user@" gets them. (Other packages, e.g. openrgb-udev-rules,
 # may add a console-user ACL of their own; both sets of rules coexist.)
+#
+# The group entry is also set through the ACL. Once a node carries an ACL
+# (uaccess from another package), MODE= only changes the ACL mask and the
+# owning-group entry keeps whatever it had when the node was created, which
+# is "---" for a node that existed before these rules were installed.
 
 # ASUS Aura USB mainboard controllers (hidraw)
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18f3", GROUP="@rgbeast_user@", MODE="0660"
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1939", GROUP="@rgbeast_user@", MODE="0660"
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="19af", GROUP="@rgbeast_user@", MODE="0660"
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1aa6", GROUP="@rgbeast_user@", MODE="0660"
-SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1bed", GROUP="@rgbeast_user@", MODE="0660"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18f3", GROUP="@rgbeast_user@", MODE="0660", RUN+="/usr/bin/setfacl -m g::rw $devnode"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1939", GROUP="@rgbeast_user@", MODE="0660", RUN+="/usr/bin/setfacl -m g::rw $devnode"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="19af", GROUP="@rgbeast_user@", MODE="0660", RUN+="/usr/bin/setfacl -m g::rw $devnode"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1aa6", GROUP="@rgbeast_user@", MODE="0660", RUN+="/usr/bin/setfacl -m g::rw $devnode"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1bed", GROUP="@rgbeast_user@", MODE="0660", RUN+="/usr/bin/setfacl -m g::rw $devnode"
 
 # SMBus / I2C adapters: chipset SMBus (DRAM) and the GPU's lighting bus.
-SUBSYSTEM=="i2c-dev", GROUP="@rgbeast_user@", MODE="0660"
+SUBSYSTEM=="i2c-dev", GROUP="@rgbeast_user@", MODE="0660", RUN+="/usr/bin/setfacl -m g::rw $devnode"

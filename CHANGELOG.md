@@ -36,9 +36,12 @@ Packaging
   longer lists 21 redundant `DeviceAllow` lines; the CI smoke test can actually fail.
 
 First install on the machine
-- The RPM's post-install waits for udev to finish re-owning the device nodes before starting the
-  service; the daemon also scans again 10 s and 30 s after start when nothing was found or a node
-  could not be opened. SMBus permission problems are reported by name in the Detection Log.
+- The udev rule now sets the nodes' owning-group ACL entry with `setfacl`. When another package
+  (openrgb-udev-rules) has already put a console-user ACL on the same nodes, `MODE=0660` only
+  changes the ACL mask and the group entry stays at `---`, so the daemon was refused although
+  `ls` showed `rw` for the group. The RPM's post-install also waits for udev to settle and restarts
+  a running service on upgrade; the daemon scans again 10 s and 30 s after start when nothing was
+  found or a node could not be opened, and SMBus permission problems are reported by name.
 - The graphics card in the target machine is a Sapphire RX 9070, not an ASUS one; the Detection
   Log now says which vendor a card is from when no ENE controller answers.
 
