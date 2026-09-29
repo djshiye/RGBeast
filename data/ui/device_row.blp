@@ -1,45 +1,35 @@
 using Gtk 4.0;
 
 template $RGBeastDeviceRow : Box {
-  orientation: vertical;
-  spacing: 8;
-  margin-start: 12;
-  margin-end: 12;
-  margin-top: 10;
-  margin-bottom: 10;
+  orientation: horizontal;
+  spacing: 12;
 
-  Box {
-    orientation: horizontal;
-    spacing: 12;
-
-    Image icon {
-      icon-name: "video-display-symbolic";
-      pixel-size: 18;
-      valign: center;
-      styles ["device-kind-icon"]
-    }
-
-    Box {
-      orientation: vertical;
-      spacing: 2;
-      hexpand: true;
-      valign: center;
-
-      Label name {
-        xalign: 0;
-        ellipsize: end;
-        styles ["heading"]
-      }
-
-      Label subtitle {
-        xalign: 0;
-        ellipsize: end;
-        styles ["caption", "dim-label"]
-      }
-    }
+  Image icon {
+    icon-name: "video-display-symbolic";
+    pixel-size: 18;
+    valign: center;
+    styles ["device-kind-icon"]
   }
 
-  $RGBeastColorStrip strip {
-    styles ["color-strip"]
+  Box {
+    orientation: vertical;
+    spacing: 1;
+    hexpand: true;
+    valign: center;
+
+    Label name {
+      xalign: 0;
+      ellipsize: end;
+    }
+
+    Label subtitle {
+      xalign: 0;
+      ellipsize: end;
+      styles ["caption", "dim-label"]
+    }
+
+    $RGBeastColorStrip strip {
+      styles ["color-strip"]
+    }
   }
 }

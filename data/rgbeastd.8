@@ -1,4 +1,4 @@
-.TH RGBEASTD 8 "September 2026" "rgbeastd 1.0.0" "System Administration"
+.TH RGBEASTD 8 "September 2026" "rgbeastd 1.0.1" "System Administration"
 .SH NAME
 rgbeastd \- RGBeast RGB lighting daemon
 .SH SYNOPSIS
@@ -29,5 +29,11 @@ Serve three simulated devices instead of real hardware.
 .B \-\-session
 Register on the session bus instead of the system bus (development only;
 polkit is skipped).
+.TP
+.BI \-\-state\-dir " DIR"
+Keep state.json in DIR (default: $STATE_DIRECTORY, else /var/lib/rgbeast).
+.TP
+.BR \-\-help ", " \-\-version
+Print usage or the version and exit.
 .SH SEE ALSO
 .BR rgbeast (1)

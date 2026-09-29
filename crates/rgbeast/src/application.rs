@@ -99,6 +99,9 @@ impl RGBeastApplication {
                 }
             })
             .build();
+        let shortcuts = gio::ActionEntry::builder("shortcuts")
+            .activate(|app: &Self, _, _| app.show_shortcuts())
+            .build();
         let lights_off = gio::ActionEntry::builder("lights-off")
             .activate(|app: &Self, _, _| {
                 if let Some(w) = app.window() {
@@ -106,11 +109,20 @@ impl RGBeastApplication {
                 }
             })
             .build();
-        self.add_action_entries([quit, about, preferences, rescan, lights_off]);
+        self.add_action_entries([quit, about, preferences, rescan, shortcuts, lights_off]);
         self.set_accels_for_action("app.quit", &["<Control>q"]);
+        self.set_accels_for_action("app.shortcuts", &["<Control>question"]);
         self.set_accels_for_action("app.preferences", &["<Control>comma"]);
         self.set_accels_for_action("app.rescan", &["<Control>r", "F5"]);
         self.set_accels_for_action("window.close", &["<Control>w"]);
+    }
+
+    fn show_shortcuts(&self) {
+        let builder =
+            gtk::Builder::from_resource(&format!("{}/ui/shortcuts.ui", config::RESOURCE_PREFIX));
+        if let Some(dialog) = builder.object::<adw::ShortcutsDialog>("shortcuts") {
+            dialog.present(self.active_window().as_ref());
+        }
     }
 
     fn show_about(&self) {

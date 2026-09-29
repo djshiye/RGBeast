@@ -152,7 +152,7 @@ impl Inner {
     }
 
     /// Discover devices and bring each to its stored state (or read what it
-    /// is showing, or fall back to a sensible default).
+    /// is showing, or leave it alone and assume the neutral default).
     fn rescan(&mut self) {
         let config = self.store.discovery_config();
         let found = scan(self.simulate, &config);
@@ -180,9 +180,11 @@ impl Inner {
                 None => match d.read_state() {
                     Ok(Some(s)) => validate(d.info(), &s).unwrap_or_default(),
                     _ => {
-                        let s = validate(d.info(), &DeviceState::default()).unwrap_or_default();
-                        d.apply(&s).ok();
-                        s
+                        // Nothing stored and nothing readable: leave whatever
+                        // the device is showing (its own power-on default) and
+                        // start from the neutral state on the next change.
+                        tracing::info!("{id}: no stored state, leaving the device as it is");
+                        validate(d.info(), &DeviceState::default()).unwrap_or_default()
                     }
                 },
             };

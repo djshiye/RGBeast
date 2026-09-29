@@ -12,3 +12,4 @@ crates/rgbeast/src/scenes.rs
 crates/rgbeast/src/ui/device_page.rs
 crates/rgbeast/src/ui/device_row.rs
 crates/rgbeast/src/widgets/led_preview.rs
+data/ui/shortcuts.blp

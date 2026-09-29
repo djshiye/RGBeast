@@ -6,7 +6,7 @@ each step names the file or command to look at when it fails.
 ## 0. Before installing
 
 ```bash
-# Kernel 6.15 or newer exposes the GPU's lighting I2C bus. Fedora 44 ships 6.18.
+# Kernel 6.15 or newer exposes the GPU's lighting I2C bus (Fedora 44 ships 7.x).
 uname -r
 # The chipset SMBus (DIMMs) and the GPU bus should be visible once i2c-dev is loaded.
 sudo modprobe i2c-dev
@@ -31,7 +31,7 @@ DIMM lighting address. That is unusual; `spd5118` normally claims `0x50..0x57` o
 sudo dnf install ./rgbeast-1.0.0-*.rpm
 systemctl status rgbeastd
 journalctl -u rgbeastd -b
-sudo -u rgbeast rgbeastd --scan          # what the daemon sees, with the daemon's permissions
+sudo -u rgbeast /usr/libexec/rgbeastd --scan   # what the daemon sees, with its permissions
 ```
 
 `--scan` prints one line per bus and device. Typical failures:
@@ -57,7 +57,8 @@ sudo -u rgbeast rgbeastd --scan          # what the daemon sees, with the daemon
 ## 3. Memory
 
 1. Select the Kingston device. The subtitle shows the number of sticks detected. If only one
-   shows, run `sudo -u rgbeast rgbeastd --scan` and report which addresses answered (`0x61`, `0x63`).
+   shows, run `sudo -u rgbeast /usr/libexec/rgbeastd --scan` and report which addresses answered
+   (`0x61`, `0x63`).
 2. **Static**, then **Slide** with three colours plus a background: the sticks animate.
 3. **Direct**: paint individual LEDs.
 4. Brightness slider affects all modes.
@@ -87,3 +88,20 @@ pkaction --verbose --action-id io.github.djshiye.rgbeast.control
 
 From another user's session (or over SSH), `busctl call io.github.djshiye.RGBeast1 ... SetState ...`
 must be refused with `AccessDenied`.
+
+## 7. Screenshots and layout checks (debug builds)
+
+`rgbeast` in a debug build honours three environment variables: `RGBEAST_DEBUG_SIZE=WxH`,
+`RGBEAST_DEBUG_DEVICE=<id>` and `RGBEAST_DEBUG_SHOT=<file.png>` (render the window after loading,
+then quit). GNOME's compositor restores a window's last size, so for exact sizes run a headless
+mutter and point the app at it:
+
+```bash
+mutter --headless --wayland --no-x11 --virtual-monitor 1600x1100 --wayland-display shots &
+./target/debug/rgbeastd --session --simulate &
+WAYLAND_DISPLAY=shots RGBEAST_BUS=session RGBEAST_DEBUG_SIZE=980x720 \
+  RGBEAST_DEBUG_DEVICE=sim:fury RGBEAST_DEBUG_SHOT=fury.png ./target/debug/rgbeast
+```
+
+`XDG_CONFIG_HOME=$(mktemp -d)` bypasses a user GTK theme; `ADW_DEBUG_COLOR_SCHEME=prefer-light`
+and `ADW_DEBUG_HIGH_CONTRAST=1` cover the other styles.

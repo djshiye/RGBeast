@@ -1,9 +1,11 @@
-//! A thin pill showing a run of colours as a gradient. Used in the sidebar
-//! so every device row previews what it is showing.
+//! A run of colours as a gradient, in whatever shape CSS gives the widget
+//! (`overflow: hidden` clips to the CSS border box). The sidebar uses it as a
+//! thin strip, the editor as a tile.
 
 use std::cell::RefCell;
 
 use gtk::{gdk, glib, graphene, gsk, prelude::*, subclass::prelude::*};
+
 use rgbeast_core::Rgb;
 
 mod imp {
@@ -25,7 +27,12 @@ mod imp {
         }
     }
 
-    impl ObjectImpl for ColorStrip {}
+    impl ObjectImpl for ColorStrip {
+        fn constructed(&self) {
+            self.parent_constructed();
+            self.obj().set_overflow(gtk::Overflow::Hidden);
+        }
+    }
 
     impl WidgetImpl for ColorStrip {
         fn measure(&self, orientation: gtk::Orientation, _for_size: i32) -> (i32, i32, i32, i32) {
@@ -40,9 +47,7 @@ mod imp {
             let w = obj.width() as f32;
             let h = obj.height() as f32;
             let rect = graphene::Rect::new(0.0, 0.0, w, h);
-            let rr = gsk::RoundedRect::from_rect(rect, h / 2.0);
             let colors = self.colors.borrow();
-            snapshot.push_rounded_clip(&rr);
             match colors.len() {
                 0 => snapshot.append_color(&gdk::RGBA::new(0.5, 0.5, 0.5, 0.25), &rect),
                 1 => snapshot.append_color(&crate::widgets::rgba(colors[0], 1.0), &rect),
@@ -65,8 +70,6 @@ mod imp {
                     );
                 }
             }
-            snapshot.pop();
-            snapshot.append_border(&rr, &[1.0; 4], &[gdk::RGBA::new(0.0, 0.0, 0.0, 0.12); 4]);
         }
     }
 }

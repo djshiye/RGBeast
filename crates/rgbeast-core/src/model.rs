@@ -130,7 +130,7 @@ impl ModeInfo {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceInfo {
-    /// Stable identifier, e.g. `aura-usb:0b05:19af:1-3` or `fury:i2c-1:0x61`.
+    /// Stable identifier, e.g. `aura-usb:0b05:19af` or `fury:i2c-1:DDR5`.
     pub id: String,
     pub name: String,
     pub vendor: String,
@@ -271,6 +271,15 @@ pub fn validate(info: &DeviceInfo, state: &DeviceState) -> Result<DeviceState> {
     out.brightness = out.brightness.min(100);
     out.speed = out.speed.min(100);
 
+    // Per-LED colours are kept across mode switches so a painting survives a
+    // detour through an effect, but only for zones the device has and only
+    // as many colours as the zone holds.
+    out.zones.retain(|z| info.zone(&z.id).is_some());
+    for z in &mut out.zones {
+        if let Some(zi) = info.zone(&z.id) {
+            z.colors.truncate(zi.leds as usize);
+        }
+    }
     match mode.color_mode {
         ColorMode::None => out.colors.clear(),
         ColorMode::ModeColors => {

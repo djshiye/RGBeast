@@ -26,8 +26,6 @@ template $RGBeastWindow : Adw.ApplicationWindow {
         tag: "sidebar";
 
         child: Adw.ToolbarView {
-          styles ["sidebar-pane"]
-
           [top]
           Adw.HeaderBar {
             [end]
@@ -48,23 +46,23 @@ template $RGBeastWindow : Adw.ApplicationWindow {
               Label {
                 label: _("Devices");
                 xalign: 0;
-                styles ["section-title", "sidebar-heading"]
+                styles ["caption-heading", "dim-label", "sidebar-heading"]
               }
 
               ListBox device_list {
                 selection-mode: single;
-                styles ["device-list"]
+                styles ["navigation-sidebar", "device-list"]
               }
 
               Label {
                 label: _("Scenes");
                 xalign: 0;
-                styles ["section-title", "sidebar-heading"]
+                styles ["caption-heading", "dim-label", "sidebar-heading"]
               }
 
               ListBox scene_list {
                 selection-mode: none;
-                styles ["device-list"]
+                styles ["navigation-sidebar", "device-list"]
               }
             };
           };
@@ -109,7 +107,8 @@ template $RGBeastWindow : Adw.ApplicationWindow {
             Box applied_box {
               spacing: 6;
               valign: center;
-              opacity: 0;
+              margin-end: 6;
+              styles ["applied-box"]
 
               Box {
                 valign: center;
@@ -133,8 +132,7 @@ template $RGBeastWindow : Adw.ApplicationWindow {
               child: Adw.StatusPage {
                 title: _("Connecting to the Lighting Service");
 
-                child: Spinner {
-                  spinning: true;
+                child: Adw.Spinner {
                   halign: center;
                   width-request: 32;
                   height-request: 32;
@@ -164,7 +162,7 @@ template $RGBeastWindow : Adw.ApplicationWindow {
               child: Adw.StatusPage empty_page {
                 icon-name: "io.github.djshiye.RGBeast-symbolic";
                 title: _("No Lighting Devices Found");
-                description: _("Nothing answered on USB or SMBus. Check that the i2c-dev module is loaded and that the daemon has access to the device nodes, then scan again.");
+                description: _("Nothing answered on USB or SMBus. Check that the i2c-dev module is loaded and that the service has access to the device nodes, then scan again.");
 
                 child: Button rescan_button {
                   label: _("Scan Again");
@@ -200,6 +198,11 @@ menu primary_menu {
   }
 
   section {
+    item {
+      label: _("_Keyboard Shortcuts");
+      action: "app.shortcuts";
+    }
+
     item {
       label: _("_About RGBeast");
       action: "app.about";

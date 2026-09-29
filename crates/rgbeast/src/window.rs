@@ -9,7 +9,7 @@ use rgbeast_core::{DeviceState, Rgb};
 
 use crate::{
     client::{Client, ClientError},
-    i18n::gettext,
+    i18n::{gettext, ngettext},
     model::{Device, map_group_state, preview_colors},
     scenes::{Scene, SceneStore},
     settings::{self, settings},
@@ -237,6 +237,23 @@ impl RGBeastWindow {
                 move |s, key| win.imp().page.set_animate(s.boolean(key))
             ),
         );
+        // Debug builds: RGBEAST_DEBUG_SHOT=<file.png> renders the window to a
+        // PNG after the first devices load and quits (docs screenshots, layout checks).
+        #[cfg(debug_assertions)]
+        if let Some(path) = std::env::var_os("RGBEAST_DEBUG_SHOT") {
+            let path = std::path::PathBuf::from(path);
+            glib::timeout_add_local_once(
+                std::time::Duration::from_millis(1500),
+                glib::clone!(
+                    #[weak(rename_to = win)]
+                    self,
+                    move || {
+                        win.debug_screenshot(&path);
+                        win.close();
+                    }
+                ),
+            );
+        }
         self.connect_close_request(|win| {
             let s = settings();
             let (w, h) = win.default_size();
@@ -362,12 +379,10 @@ impl RGBeastWindow {
         }
         imp.devices.replace(devices);
 
-        let version = client.version().await.unwrap_or_default();
         let simulated = client.simulated().await.unwrap_or(false);
         let n = imp.devices.borrow().len();
-        let mut status = gettext("rgbeastd {v} · {n} devices")
-            .replace("{v}", &version)
-            .replace("{n}", &n.to_string());
+        let mut status =
+            ngettext("{n} device", "{n} devices", n as u32).replace("{n}", &n.to_string());
         if simulated {
             status.push_str(" · ");
             status.push_str(&gettext("simulated"));
@@ -649,11 +664,10 @@ impl RGBeastWindow {
         let row = gtk::ListBoxRow::new();
         row.set_widget_name(name);
         row.set_activatable(true);
+        if name == "__save" {
+            row.add_css_class("scene-add");
+        }
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-        hbox.set_margin_start(12);
-        hbox.set_margin_end(8);
-        hbox.set_margin_top(8);
-        hbox.set_margin_bottom(8);
         if colors.is_empty() {
             let icon = gtk::Image::from_icon_name("list-add-symbolic");
             icon.set_pixel_size(16);
@@ -662,7 +676,7 @@ impl RGBeastWindow {
         } else {
             let strip = ColorStrip::default();
             strip.set_colors(colors);
-            strip.set_size_request(36, 36);
+            strip.add_css_class("scene-swatch");
             strip.set_valign(gtk::Align::Center);
             hbox.append(&strip);
         }
@@ -673,18 +687,19 @@ impl RGBeastWindow {
         hbox.append(&l);
         if editable {
             let menu = gio::Menu::new();
+            let target = name.to_variant();
             menu.append(
                 Some(&gettext("Rename…")),
-                Some(&format!(
-                    "win.scene-rename('{}')",
-                    name.replace('\'', "\\'")
+                Some(&gio::Action::print_detailed_name(
+                    "win.scene-rename",
+                    Some(&target),
                 )),
             );
             menu.append(
                 Some(&gettext("Delete")),
-                Some(&format!(
-                    "win.scene-delete('{}')",
-                    name.replace('\'', "\\'")
+                Some(&gio::Action::print_detailed_name(
+                    "win.scene-delete",
+                    Some(&target),
                 )),
             );
             let b = gtk::MenuButton::builder()
@@ -833,9 +848,12 @@ impl RGBeastWindow {
 
     // ── Feedback ─────────────────────────────────────────────────────────
 
+    /// The quiet "Applied" mark: fades in at once, fades out 1.2 s later.
+    /// Both fades are CSS transitions, so they follow the system's
+    /// animation setting.
     fn flash_applied(&self) {
         let imp = self.imp();
-        imp.applied_box.set_opacity(1.0);
+        imp.applied_box.add_css_class("shown");
         if let Some(id) = imp.applied_source.borrow_mut().take() {
             id.remove();
         }
@@ -846,7 +864,7 @@ impl RGBeastWindow {
                 self,
                 move || {
                     win.imp().applied_source.borrow_mut().take();
-                    win.imp().applied_box.set_opacity(0.0);
+                    win.imp().applied_box.remove_css_class("shown");
                 }
             ),
         );
@@ -872,6 +890,24 @@ impl RGBeastWindow {
             ClientError::Failed(m) => gettext("Could not apply: {reason}").replace("{reason}", m),
         };
         self.toast(&text);
+    }
+}
+
+#[cfg(debug_assertions)]
+impl RGBeastWindow {
+    fn debug_screenshot(&self, path: &std::path::Path) {
+        let paintable = gtk::WidgetPaintable::new(Some(self));
+        let snapshot = gtk::Snapshot::new();
+        paintable.snapshot(&snapshot, self.width() as f64, self.height() as f64);
+        let (Some(node), Some(renderer)) = (snapshot.to_node(), self.renderer()) else {
+            tracing::warn!("screenshot: nothing to render");
+            return;
+        };
+        let texture = renderer.render_texture(&node, None);
+        match texture.save_to_png(path) {
+            Ok(()) => tracing::info!("screenshot saved to {}", path.display()),
+            Err(e) => tracing::warn!("screenshot failed: {e}"),
+        }
     }
 }
 

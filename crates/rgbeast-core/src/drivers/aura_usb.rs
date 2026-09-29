@@ -4,7 +4,7 @@
 
 use crate::{
     Driver, Error, Result, Rgb,
-    model::{ColorMode, DeviceInfo, DeviceKind, DeviceState, ModeInfo, ZoneInfo},
+    model::{DeviceInfo, DeviceKind, DeviceState, ModeInfo, ZoneInfo},
     transport::HidTransport,
 };
 
@@ -18,6 +18,8 @@ pub const USAGE: u16 = 0x00A1;
 pub const MAX_ADDRESSABLE_LEDS: u32 = 120;
 const REPORT_LEN: usize = 65;
 const LEDS_PER_DIRECT_PACKET: usize = 20;
+/// Colours carried by one effect-colour packet (60 bytes after the header).
+const EFFECT_COLOR_LEDS: u8 = 20;
 const READ_TIMEOUT_MS: u32 = 1000;
 
 const CMD_PREFIX: u8 = 0xEC;
@@ -113,9 +115,10 @@ impl<T: HidTransport> AuraUsb<T> {
         // Documented layout of the 60-byte table.
         let mut onboard_leds = table[0x1B];
         let addressable = table[0x02];
-        if onboard_leds > 60 {
-            // 60 bytes of colour data fit in an effect-colour packet.
-            onboard_leds = 20;
+        if onboard_leds > EFFECT_COLOR_LEDS {
+            // An effect-colour packet carries 20 colours (60 bytes) and a
+            // 16-bit mask; a bigger count would be a misread table.
+            onboard_leds = EFFECT_COLOR_LEDS;
         }
 
         let mut zones = Vec::new();
@@ -256,9 +259,13 @@ impl<T: HidTransport> AuraUsb<T> {
         color: Rgb,
         shutdown: bool,
     ) -> Result<()> {
-        let count = count.min(20);
-        let mask: u16 = ((1u32 << count) - 1) as u16;
-        let mask = mask << start_led;
+        let count = count.min(EFFECT_COLOR_LEDS);
+        if start_led as usize + count as usize > 16 {
+            return Err(Error::Protocol(format!(
+                "effect colour range {start_led}+{count} exceeds the 16-bit LED mask"
+            )));
+        }
+        let mask: u16 = (((1u32 << count) - 1) << start_led) as u16;
         let mut p = packet(CMD_EFFECT_COLOR);
         p[2] = (mask >> 8) as u8;
         p[3] = (mask & 0xFF) as u8;
@@ -354,11 +361,6 @@ impl<T: HidTransport> Driver for AuraUsb<T> {
 /// Which modes exist, for callers that build sim devices.
 pub fn modes() -> Vec<ModeInfo> {
     mode_list()
-}
-
-#[allow(dead_code)]
-fn _assert_color_modes() {
-    let _ = ColorMode::PerLed;
 }
 
 #[cfg(test)]

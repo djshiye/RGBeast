@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.0.1 (2026-09-29)
+
+First run on the target machine (Fedora 44, GNOME 50, libadwaita 1.9). Reviewed against Apple's
+Human Interface Guidelines (design principles, materials) and reworked where the app fell short.
+
+Design
+- The sidebar is the platform's own navigation material: flat rows on `sidebar-bg-color` with a
+  rounded selection, no card shadows. Device rows keep the accent icon tile and the colour strip.
+- The editor's sections are libadwaita cards (`.card`), so light, dark, high contrast and the
+  system accent all carry through; all colours come from `var(--…)` tokens and `color-mix()`.
+- Effect chips wrap in an `AdwWrapBox`; direction is an `AdwToggleGroup`; the "Applied" mark
+  fades with CSS transitions; a Keyboard Shortcuts dialog (Ctrl+?) lists every shortcut.
+- The colour wheel's focus ring uses the system accent and only appears for keyboard focus; the
+  wheel reports its colour to assistive technology.
+- Status line reads "3 devices · simulated" instead of a daemon version string.
+- The header bar rule that leaked into every dialog is gone; the stylesheet only targets the
+  app's own classes.
+
+Daemon and discovery
+- "Restore After Sleep" is honoured (it was read but never applied).
+- Discovery probes only PIIX4 port 0 and only DIMM slots that have an SPD device, so empty
+  slots and the chipset's auxiliary ports are never written to.
+- The GPU's PCI identity is read from the real sysfs location, so the card is named
+  ("ASUS Radeon RX 9070") and the vendor check works.
+- Devices with no stored state are left showing their own power-on effect instead of being set to
+  white on every start.
+- StateChanged/DevicesChanged are emitted once per change; SIGTERM shuts down cleanly; a device
+  missing at boot is looked for once more after 10 s; a corrupt state.json is kept as `.bad`.
+- Per-LED colours are bounded to the device's zones in every mode; the Aura effect-colour mask
+  is guarded against overflow.
+
+Packaging
+- README documents `--prefix=/usr` and the post-install steps for a Meson install; the unit no
+  longer lists 21 redundant `DeviceAllow` lines; the CI smoke test can actually fail.
+
 ## 1.0.0 (2026-09-28)
 
 First release, built in a cloud environment against simulated devices; hardware bring-up is

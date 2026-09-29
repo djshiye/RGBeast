@@ -1,5 +1,7 @@
 # RGBeast: give the daemon's group access to the lighting controllers it drives.
-# The desktop session never gets these nodes; only user "@rgbeast_user@" does.
+# RGBeast itself never grants the desktop session access to these nodes; only
+# user "@rgbeast_user@" gets them. (Other packages, e.g. openrgb-udev-rules,
+# may add a console-user ACL of their own; both sets of rules coexist.)
 
 # ASUS Aura USB mainboard controllers (hidraw)
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="18f3", GROUP="@rgbeast_user@", MODE="0660"

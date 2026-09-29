@@ -16,7 +16,8 @@ case "$OUTDIR" in
 esac
 
 export CARGO_TARGET_DIR="$MESON_BUILD_ROOT/target"
-export CARGO_HOME="${CARGO_HOME:-$MESON_BUILD_ROOT/cargo-home}"
+# CARGO_HOME is left alone: developers keep their ~/.cargo registry, and the
+# RPM build exports its own vendored one.
 
 cd "$MESON_SOURCE_ROOT"
 

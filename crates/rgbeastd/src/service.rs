@@ -70,17 +70,13 @@ impl Manager {
         &self,
         #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(header)] hdr: Header<'_>,
-        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
         id: String,
         state: String,
     ) -> fdo::Result<String> {
         self.authorise(conn, &hdr).await?;
         let state = parse_state(&state)?;
-        let applied = self.worker.set(id.clone(), state).await.map_err(to_fdo)?;
-        let json =
-            serde_json::to_string(&applied).map_err(|e| fdo::Error::Failed(e.to_string()))?;
-        Self::state_changed(&emitter, &id, &json).await.ok();
-        Ok(json)
+        let applied = self.worker.set(id, state).await.map_err(to_fdo)?;
+        serde_json::to_string(&applied).map_err(|e| fdo::Error::Failed(e.to_string()))
     }
 
     /// Resize an addressable zone. Returns the updated JSON DeviceInfo.
@@ -88,7 +84,6 @@ impl Manager {
         &self,
         #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(header)] hdr: Header<'_>,
-        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
         id: String,
         zone: String,
         leds: u32,
@@ -99,7 +94,6 @@ impl Manager {
             .set_zone_leds(id, zone, leds)
             .await
             .map_err(to_fdo)?;
-        Self::devices_changed(&emitter).await.ok();
         serde_json::to_string(&info).map_err(|e| fdo::Error::Failed(e.to_string()))
     }
 
@@ -119,11 +113,9 @@ impl Manager {
         &self,
         #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(header)] hdr: Header<'_>,
-        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<String> {
         self.authorise(conn, &hdr).await?;
         let list = self.worker.rescan().await.map_err(to_fdo)?;
-        Self::devices_changed(&emitter).await.ok();
         serde_json::to_string(&list).map_err(|e| fdo::Error::Failed(e.to_string()))
     }
 
@@ -156,7 +148,10 @@ impl Manager {
     ) -> zbus::Result<()> {
         let hdr = hdr.ok_or_else(|| zbus::Error::Failure("no message header".into()))?;
         self.authorise(conn, &hdr).await?;
-        self.store.set_restore_on_resume(on);
+        let store = self.store.clone();
+        tokio::task::spawn_blocking(move || store.set_restore_on_resume(on))
+            .await
+            .map_err(|e| zbus::Error::Failure(e.to_string()))?;
         Ok(())
     }
 
@@ -194,15 +189,20 @@ trait Login1 {
     fn prepare_for_sleep(&self, start: bool) -> zbus::Result<()>;
 }
 
-/// Re-apply lighting when the machine wakes up. Controllers lose their
-/// state or re-enumerate across suspend; a short delay lets USB settle.
-pub async fn watch_sleep(conn: zbus::Connection, worker: Worker) -> zbus::Result<()> {
+/// Re-apply lighting when the machine wakes up, if the user wants that.
+/// Controllers lose their state or re-enumerate across suspend; a short
+/// delay lets USB settle.
+pub async fn watch_sleep(conn: zbus::Connection, worker: Worker, store: Store) -> zbus::Result<()> {
     use futures_lite::StreamExt;
     let proxy = Login1Proxy::new(&conn).await?;
     let mut stream = proxy.receive_prepare_for_sleep().await?;
     while let Some(sig) = stream.next().await {
         let Ok(args) = sig.args() else { continue };
         if !args.start {
+            if !store.restore_on_resume() {
+                tracing::info!("resumed from sleep, restore is off");
+                continue;
+            }
             tracing::info!("resumed from sleep, restoring lighting");
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             if let Err(e) = worker.restore_all().await {

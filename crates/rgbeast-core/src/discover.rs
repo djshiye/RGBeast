@@ -54,7 +54,12 @@ const ASUS_VENDOR: u16 = 0x1043;
 /// Classify a bus from its adapter name and PCI parent.
 pub fn bus_role(bus: &I2cBus) -> BusRole {
     let n = bus.name.as_str();
-    if n.starts_with("SMBus PIIX4 adapter") || n.starts_with("SMBus I801 adapter") {
+    // AMD's chipset exposes three PIIX4 ports; the DIMMs and the board's
+    // own controllers sit on port 0. Ports 1 and 2 (ASF, auxiliary) are
+    // never probed.
+    if n.starts_with("SMBus I801 adapter")
+        || (n.starts_with("SMBus PIIX4 adapter") && n.contains("port 0 "))
+    {
         return BusRole::Chipset;
     }
     if n.starts_with("AMDGPU DM i2c OEM bus") || n.starts_with("AMDGPU i2c bit bus OEM 0x97") {
@@ -77,9 +82,11 @@ fn read_hex(path: &Path) -> Option<u32> {
     u32::from_str_radix(s.trim().trim_start_matches("0x"), 16).ok()
 }
 
-/// Walk up from the adapter's device link until a PCI device appears.
+/// Walk up from the adapter's real sysfs location until a PCI device
+/// appears. `/sys/bus/i2c/devices/i2c-N` is a link into
+/// `/sys/devices/pci…/0000:03:00.0/i2c-N`, so the card is a few levels up.
 fn pci_parent(adapter: &Path) -> Option<PciIds> {
-    let mut p = adapter.join("device").canonicalize().ok()?;
+    let mut p = adapter.canonicalize().ok()?;
     for _ in 0..8 {
         if p.join("vendor").exists() && p.join("device").exists() {
             return Some(PciIds {
@@ -97,6 +104,26 @@ fn pci_parent(adapter: &Path) -> Option<PciIds> {
 
 pub fn i2c_buses() -> Vec<I2cBus> {
     i2c_buses_in(Path::new("/sys/bus/i2c/devices"))
+}
+
+/// DIMM slots that have an SPD EEPROM registered on this bus
+/// (`/sys/bus/i2c/devices/<bus>-005<slot>`, bound by spd5118 or ee1004).
+/// Only those slots are probed for lighting controllers, so an empty slot's
+/// address is never written to. With no SPD entries at all (no SPD driver
+/// loaded), every slot is a candidate.
+pub fn dimm_slots(bus: u32) -> Vec<u8> {
+    dimm_slots_in(Path::new("/sys/bus/i2c/devices"), bus)
+}
+
+pub fn dimm_slots_in(root: &Path, bus: u32) -> Vec<u8> {
+    let present: Vec<u8> = (0u8..8)
+        .filter(|s| root.join(format!("{bus}-005{s}")).exists())
+        .collect();
+    if present.is_empty() {
+        (0u8..8).collect()
+    } else {
+        present
+    }
 }
 
 pub fn i2c_buses_in(root: &Path) -> Vec<I2cBus> {
@@ -288,7 +315,7 @@ pub fn discover(config: &DiscoveryConfig) -> Discovered {
                     };
                     let mut slots = Vec::new();
                     let mut model = None;
-                    for slot in 0u8..8 {
+                    for slot in dimm_slots(bus.number) {
                         if let Some(m) = fury::probe(&mut smbus, base + slot) {
                             slots.push(slot);
                             model.get_or_insert(m);
@@ -334,6 +361,10 @@ pub fn discover(config: &DiscoveryConfig) -> Discovered {
                             continue;
                         }
                         let id = format!("ene:i2c-{}:0x{addr:02X}", bus.number);
+                        if devices.iter().any(|d| d.info().id == id) {
+                            // 0x4F is both a DRAM and a mainboard address.
+                            continue;
+                        }
                         let name = if kind == DeviceKind::Dram {
                             "ENE RGB memory".to_string()
                         } else {
@@ -391,6 +422,14 @@ mod tests {
             BusRole::Chipset
         );
         assert_eq!(
+            bus_role(&bus("SMBus PIIX4 adapter port 2 at 0b00", None)),
+            BusRole::Other
+        );
+        assert_eq!(
+            bus_role(&bus("SMBus PIIX4 adapter port 1 at 0b20", None)),
+            BusRole::Other
+        );
+        assert_eq!(
             bus_role(&bus("SMBus I801 adapter at efa0", None)),
             BusRole::Chipset
         );
@@ -435,21 +474,28 @@ mod tests {
         assert_eq!(bus_role(&bus("i915 gmbus dpb", None)), BusRole::Other);
     }
 
+    /// Mirrors the real layout: `bus/i2c/devices/i2c-7` is a symlink to
+    /// `devices/pci…/0000:03:00.0/i2c-7`, and the PCI attributes live on
+    /// the card directory above it.
     #[test]
     fn reads_sysfs_layout() {
         let dir = std::env::temp_dir().join(format!("rgbeast-sysfs-{}", std::process::id()));
-        let adapter = dir.join("i2c-7");
-        fs::create_dir_all(&adapter).unwrap();
-        fs::write(adapter.join("name"), "AMDGPU DM i2c OEM bus\n").unwrap();
-        let pci = dir.join("pci0000:03");
-        fs::create_dir_all(pci.join("child")).unwrap();
-        fs::write(pci.join("vendor"), "0x1002\n").unwrap();
-        fs::write(pci.join("device"), "0x7550\n").unwrap();
-        fs::write(pci.join("subsystem_vendor"), "0x1043\n").unwrap();
-        fs::write(pci.join("subsystem_device"), "0x0000\n").unwrap();
-        fs::write(pci.join("class"), "0x030000\n").unwrap();
-        std::os::unix::fs::symlink(pci.join("child"), adapter.join("device")).unwrap();
-        let buses = i2c_buses_in(&dir);
+        let devices = dir.join("bus-i2c-devices");
+        fs::create_dir_all(&devices).unwrap();
+        let card = dir.join("devices").join("pci0000:00").join("0000:03:00.0");
+        let real = card.join("i2c-7");
+        fs::create_dir_all(&real).unwrap();
+        fs::write(real.join("name"), "AMDGPU DM i2c OEM bus\n").unwrap();
+        fs::write(card.join("vendor"), "0x1002\n").unwrap();
+        fs::write(card.join("device"), "0x7550\n").unwrap();
+        fs::write(card.join("subsystem_vendor"), "0x1043\n").unwrap();
+        fs::write(card.join("subsystem_device"), "0x0000\n").unwrap();
+        fs::write(card.join("class"), "0x030000\n").unwrap();
+        std::os::unix::fs::symlink(&real, devices.join("i2c-7")).unwrap();
+        // Two populated DIMM slots on bus 1.
+        fs::create_dir_all(devices.join("1-0051")).unwrap();
+        fs::create_dir_all(devices.join("1-0053")).unwrap();
+        let buses = i2c_buses_in(&devices);
         assert_eq!(buses.len(), 1);
         assert_eq!(buses[0].number, 7);
         assert_eq!(buses[0].pci.as_ref().unwrap().device, 0x7550);
@@ -457,6 +503,8 @@ mod tests {
             gpu_name(buses[0].pci.as_ref().unwrap()),
             "ASUS Radeon RX 9070"
         );
+        assert_eq!(dimm_slots_in(&devices, 1), vec![1, 3]);
+        assert_eq!(dimm_slots_in(&devices, 2), (0u8..8).collect::<Vec<_>>());
         fs::remove_dir_all(&dir).ok();
     }
 }

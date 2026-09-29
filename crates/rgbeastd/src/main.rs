@@ -94,9 +94,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if !args.session {
         let resume_conn = conn.clone();
         let resume_worker = worker.clone();
+        let resume_store = store.clone();
         tokio::spawn(async move {
-            if let Err(e) = service::watch_sleep(resume_conn, resume_worker).await {
+            if let Err(e) = service::watch_sleep(resume_conn, resume_worker, resume_store).await {
                 tracing::warn!("sleep monitoring unavailable: {e}");
+            }
+        });
+    }
+
+    // At boot the daemon can start before udev has applied the rules or
+    // before amdgpu has created the GPU's bus. If a device this machine had
+    // last time is missing, look once more a little later.
+    if !args.simulate {
+        let known = store.known_devices();
+        let retry_worker = worker.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            let Ok(found) = retry_worker.list().await else {
+                return;
+            };
+            let missing: Vec<&String> = known
+                .iter()
+                .filter(|id| !found.iter().any(|d| &d.id == *id))
+                .collect();
+            if !missing.is_empty() {
+                tracing::info!("devices missing after boot ({missing:?}), scanning again");
+                retry_worker.rescan().await.ok();
             }
         });
     }
@@ -110,7 +133,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    tokio::signal::ctrl_c().await?;
+    let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {}
+        _ = term.recv() => {}
+    }
     tracing::info!("shutting down");
     Ok(())
 }

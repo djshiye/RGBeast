@@ -16,274 +16,272 @@ template $RGBeastDevicePage : Adw.Bin {
     }
 
     child: ScrolledWindow {
-    hscrollbar-policy: never;
+      hscrollbar-policy: never;
 
-    child: Adw.Clamp {
-      maximum-size: 760;
-      tightening-threshold: 600;
-      margin-start: 18;
-      margin-end: 18;
-      margin-top: 6;
-      margin-bottom: 24;
+      child: Adw.Clamp {
+        maximum-size: 760;
+        tightening-threshold: 600;
+        margin-start: 18;
+        margin-end: 18;
+        margin-top: 6;
+        margin-bottom: 24;
 
-      child: Box {
-        orientation: vertical;
-        spacing: 16;
-
-        $RGBeastLedPreview preview {
-          styles ["led-preview"]
-        }
-
-        Box paint_bar {
-          spacing: 8;
-          visible: false;
-          halign: center;
-
-          Label {
-            label: _("Click a light to paint it with the current colour.");
-            styles ["caption", "dim-label"]
-          }
-
-          Button fill_button {
-            label: _("Fill All");
-            styles ["flat", "caption"]
-          }
-        }
-
-        Box mode_section {
+        child: Box {
           orientation: vertical;
-          spacing: 10;
-          styles ["card-section"]
+          spacing: 16;
 
-          Label {
-            label: _("Effect");
-            xalign: 0;
-            styles ["section-title"]
+          $RGBeastLedPreview preview {
+            styles ["led-preview"]
           }
 
-          FlowBox mode_box {
-            selection-mode: none;
-            homogeneous: false;
-            max-children-per-line: 12;
-            min-children-per-line: 2;
-            row-spacing: 0;
-            column-spacing: 0;
-            styles ["chips"]
-          }
-        }
-
-        Box color_section {
-          orientation: vertical;
-          spacing: 14;
-          styles ["card-section"]
-
-          Box {
-            spacing: 6;
+          Box paint_bar {
+            spacing: 8;
+            visible: false;
+            halign: center;
 
             Label {
-              label: _("Colour");
-              xalign: 0;
-              hexpand: true;
-              valign: center;
-              styles ["section-title"]
+              label: _("Click a light to paint it with the current colour.");
+              styles ["caption", "dim-label"]
             }
 
-            Box slot_box {
-              spacing: 6;
-              valign: center;
-            }
-
-            Button add_color {
-              icon-name: "list-add-symbolic";
-              tooltip-text: _("Add Colour");
-              visible: false;
-              valign: center;
-              styles ["flat", "circular"]
-            }
-
-            Button remove_color {
-              icon-name: "list-remove-symbolic";
-              tooltip-text: _("Remove Colour");
-              visible: false;
-              valign: center;
-              styles ["flat", "circular"]
+            Button fill_button {
+              label: _("Fill All");
+              styles ["flat", "caption"]
             }
           }
 
-          Box color_row {
-            spacing: 22;
+          Box mode_section {
+            orientation: vertical;
+            spacing: 10;
+            styles ["card", "section"]
 
-            $RGBeastColorWheel wheel {
-              width-request: 220;
-              height-request: 220;
-              valign: center;
+            Label {
+              label: _("Effect");
+              xalign: 0;
+              styles ["caption-heading", "dim-label"]
             }
 
-            Box {
-              orientation: vertical;
-              spacing: 14;
-              hexpand: true;
-              valign: center;
+            Adw.WrapBox mode_box {
+              child-spacing: 6;
+              line-spacing: 6;
+            }
+          }
 
-              FlowBox palette_box {
-                selection-mode: none;
-                homogeneous: true;
-                max-children-per-line: 6;
-                min-children-per-line: 6;
-                row-spacing: 8;
-                column-spacing: 8;
+          Box color_section {
+            orientation: vertical;
+            spacing: 14;
+            styles ["card", "section"]
+
+            Box {
+              spacing: 6;
+
+              Label {
+                label: _("Colour");
+                xalign: 0;
+                hexpand: true;
+                valign: center;
+                styles ["caption-heading", "dim-label"]
+              }
+
+              Box slot_box {
+                spacing: 6;
+                valign: center;
+              }
+
+              Button add_color {
+                icon-name: "list-add-symbolic";
+                tooltip-text: _("Add Colour");
+                visible: false;
+                valign: center;
+                styles ["flat", "circular"]
+              }
+
+              Button remove_color {
+                icon-name: "list-remove-symbolic";
+                tooltip-text: _("Remove Colour");
+                visible: false;
+                valign: center;
+                styles ["flat", "circular"]
+              }
+            }
+
+            Box color_row {
+              spacing: 22;
+
+              $RGBeastColorWheel wheel {
+                width-request: 220;
+                height-request: 220;
+                valign: center;
               }
 
               Box {
-                spacing: 10;
-
-                $RGBeastColorStrip hero_color {
-                  valign: center;
-                  width-request: 44;
-                  height-request: 44;
-                  styles ["hero-color"]
-                }
-
-                Entry hex_entry {
-                  max-length: 7;
-                  width-chars: 9;
-                  valign: center;
-                  placeholder-text: "#RRGGBB";
-                  styles ["hex-entry", "monospace"]
-                }
-              }
-
-              Box brightness_box {
                 orientation: vertical;
-                spacing: 2;
+                spacing: 14;
+                hexpand: true;
+                valign: center;
+
+                FlowBox palette_box {
+                  selection-mode: none;
+                  homogeneous: true;
+                  max-children-per-line: 6;
+                  min-children-per-line: 6;
+                  row-spacing: 8;
+                  column-spacing: 8;
+                }
 
                 Box {
-                  Label {
-                    label: _("Brightness");
-                    xalign: 0;
-                    hexpand: true;
-                    styles ["caption", "dim-label"]
+                  spacing: 10;
+
+                  $RGBeastColorStrip hero_color {
+                    valign: center;
+                    width-request: 44;
+                    height-request: 44;
+                    styles ["hero-color"]
                   }
 
-                  Label brightness_value {
-                    styles ["caption", "dim-label", "numeric"]
+                  Entry hex_entry {
+                    max-length: 7;
+                    width-chars: 9;
+                    valign: center;
+                    placeholder-text: "#RRGGBB";
+                    styles ["hex-entry", "monospace"]
                   }
                 }
 
-                Scale brightness_scale {
-                  draw-value: false;
-                  adjustment: Adjustment {
-                    lower: 0;
-                    upper: 100;
-                    step-increment: 1;
-                    page-increment: 10;
-                  };
-                  styles ["brightness"]
+                Box brightness_box {
+                  orientation: vertical;
+                  spacing: 2;
+
+                  Box {
+                    Label {
+                      label: _("Brightness");
+                      xalign: 0;
+                      hexpand: true;
+                      styles ["caption", "dim-label"]
+                    }
+
+                    Label brightness_value {
+                      styles ["caption", "dim-label", "numeric"]
+                    }
+                  }
+
+                  Scale brightness_scale {
+                    draw-value: false;
+                    adjustment: Adjustment {
+                      lower: 0;
+                      upper: 100;
+                      step-increment: 1;
+                      page-increment: 10;
+                    };
+                    styles ["brightness"]
+                  }
                 }
               }
             }
           }
-        }
 
-        Box motion_section {
-          orientation: vertical;
-          spacing: 12;
-          styles ["card-section"]
-
-          Label {
-            label: _("Motion");
-            xalign: 0;
-            styles ["section-title"]
-          }
-
-          Box speed_box {
+          Box motion_section {
             orientation: vertical;
-            spacing: 2;
+            spacing: 12;
+            styles ["card", "section"]
 
-            Box {
+            Label {
+              label: _("Motion");
+              xalign: 0;
+              styles ["caption-heading", "dim-label"]
+            }
+
+            Box speed_box {
+              orientation: vertical;
+              spacing: 2;
+
+              Box {
+                Label {
+                  label: _("Speed");
+                  xalign: 0;
+                  hexpand: true;
+                  styles ["caption", "dim-label"]
+                }
+
+                Label speed_value {
+                  styles ["caption", "dim-label", "numeric"]
+                }
+              }
+
+              Scale speed_scale {
+                draw-value: false;
+                adjustment: Adjustment {
+                  lower: 0;
+                  upper: 100;
+                  step-increment: 1;
+                  page-increment: 10;
+                };
+              }
+            }
+
+            Box direction_box {
+              spacing: 8;
+
               Label {
-                label: _("Speed");
+                label: _("Direction");
                 xalign: 0;
                 hexpand: true;
+                valign: center;
                 styles ["caption", "dim-label"]
               }
 
-              Label speed_value {
-                styles ["caption", "dim-label", "numeric"]
+              Adw.ToggleGroup dir_group {
+                valign: center;
+                homogeneous: true;
+                styles ["round"]
+
+                Adw.Toggle {
+                  name: "0";
+                  label: _("Forward");
+                }
+
+                Adw.Toggle {
+                  name: "1";
+                  label: _("Reverse");
+                }
               }
             }
 
-            Scale speed_scale {
-              draw-value: false;
-              adjustment: Adjustment {
-                lower: 0;
-                upper: 100;
-                step-increment: 1;
-                page-increment: 10;
-              };
+            Box random_box {
+              spacing: 8;
+
+              Label {
+                label: _("Random Colours");
+                xalign: 0;
+                hexpand: true;
+                valign: center;
+                styles ["caption", "dim-label"]
+              }
+
+              Switch random_switch {
+                valign: center;
+              }
             }
           }
 
-          Box direction_box {
+          Box zones_section {
+            orientation: vertical;
             spacing: 8;
 
             Label {
-              label: _("Direction");
+              label: _("Zones");
               xalign: 0;
-              hexpand: true;
-              valign: center;
-              styles ["caption", "dim-label"]
+              margin-start: 4;
+              styles ["caption-heading", "dim-label"]
             }
 
-            Box {
-              styles ["linked"]
-
-              ToggleButton dir_a {
-                label: _("Forward");
-              }
-
-              ToggleButton dir_b {
-                label: _("Reverse");
-                group: dir_a;
-              }
+            ListBox zones_list {
+              selection-mode: none;
+              styles ["boxed-list"]
             }
           }
-
-          Box random_box {
-            spacing: 8;
-
-            Label {
-              label: _("Random Colours");
-              xalign: 0;
-              hexpand: true;
-              valign: center;
-              styles ["caption", "dim-label"]
-            }
-
-            Switch random_switch {
-              valign: center;
-            }
-          }
-        }
-
-        Box zones_section {
-          orientation: vertical;
-          spacing: 10;
-          styles ["card-section"]
-
-          Label {
-            label: _("Zones");
-            xalign: 0;
-            styles ["section-title"]
-          }
-
-          ListBox zones_list {
-            selection-mode: none;
-            styles ["boxed-list"]
-          }
-        }
+        };
       };
-    };
     };
   };
 }

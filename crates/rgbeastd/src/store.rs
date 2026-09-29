@@ -12,7 +12,7 @@ use rgbeast_core::{DeviceState, discover::DiscoveryConfig};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default)]
 pub struct Persisted {
     pub devices: BTreeMap<String, DeviceState>,
     pub header_leds: BTreeMap<String, Vec<u32>>,
@@ -33,7 +33,17 @@ impl Store {
             .ok()
             .and_then(|s| {
                 serde_json::from_str::<Persisted>(&s)
-                    .map_err(|e| tracing::warn!("ignoring {}: {e}", path.display()))
+                    .map_err(|e| {
+                        // Keep the unreadable file for inspection instead of
+                        // overwriting it on the next change.
+                        let bad = path.with_extension("json.bad");
+                        tracing::warn!(
+                            "ignoring {}: {e} (kept as {})",
+                            path.display(),
+                            bad.display()
+                        );
+                        fs::rename(&path, &bad).ok();
+                    })
                     .ok()
             })
             .unwrap_or_else(|| Persisted {
@@ -70,6 +80,11 @@ impl Store {
 
     pub fn device_state(&self, id: &str) -> Option<DeviceState> {
         self.lock().devices.get(id).cloned()
+    }
+
+    /// Ids of every device that has a stored state.
+    pub fn known_devices(&self) -> Vec<String> {
+        self.lock().devices.keys().cloned().collect()
     }
 
     pub fn set_device_state(&self, id: &str, state: &DeviceState) {

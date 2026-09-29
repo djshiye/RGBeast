@@ -1,0 +1,52 @@
+using Gtk 4.0;
+using Adw 1;
+
+Adw.ShortcutsDialog shortcuts {
+  Adw.ShortcutsSection {
+    title: _("General");
+
+    Adw.ShortcutsItem {
+      title: _("Scan for Devices");
+      accelerator: "<Control>r F5";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Preferences");
+      accelerator: "<Control>comma";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Keyboard Shortcuts");
+      accelerator: "<Control>question";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Close Window");
+      accelerator: "<Control>w";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Quit");
+      accelerator: "<Control>q";
+    }
+  }
+
+  Adw.ShortcutsSection {
+    title: _("Colour Wheel");
+
+    Adw.ShortcutsItem {
+      title: _("Nudge Hue");
+      accelerator: "Left Right";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Nudge Brightness");
+      accelerator: "Up Down";
+    }
+
+    Adw.ShortcutsItem {
+      title: _("Bigger Steps");
+      accelerator: "<Shift>Left <Shift>Right <Shift>Up <Shift>Down";
+    }
+  }
+}

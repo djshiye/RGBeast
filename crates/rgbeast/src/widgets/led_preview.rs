@@ -136,7 +136,7 @@ mod imp {
                 _ => {
                     let width = if for_size > 0 { for_size } else { 320 };
                     let h = self.obj().frame_for(width).height.ceil() as i32;
-                    (h.max(160), h.max(160), -1, -1)
+                    (h.max(140), h.max(140), -1, -1)
                 }
             }
         }

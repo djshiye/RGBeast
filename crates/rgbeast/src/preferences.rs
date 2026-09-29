@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use adw::{prelude::*, subclass::prelude::*};
 use gtk::{CompositeTemplate, glib};
 
@@ -129,11 +131,29 @@ impl RGBeastPreferences {
                 row.set_value(z.leds as f64);
                 let id = info.id.clone();
                 let zone = z.id.clone();
+                // Debounced like the page's zone rows: one daemon call per pause.
+                let pending: Rc<RefCell<Option<glib::SourceId>>> = Default::default();
                 row.connect_value_notify(glib::clone!(
                     #[weak]
                     window,
                     move |r| {
-                        window.resize_zone(&id, &zone, r.value().round() as u32);
+                        let leds = r.value().round() as u32;
+                        if let Some(old) = pending.borrow_mut().take() {
+                            old.remove();
+                        }
+                        let (id, zone, pending2) = (id.clone(), zone.clone(), pending.clone());
+                        let source = glib::timeout_add_local_once(
+                            std::time::Duration::from_millis(400),
+                            glib::clone!(
+                                #[weak]
+                                window,
+                                move || {
+                                    pending2.borrow_mut().take();
+                                    window.resize_zone(&id, &zone, leds);
+                                }
+                            ),
+                        );
+                        pending.borrow_mut().replace(source);
                     }
                 ));
                 imp.headers_group.add(&row);

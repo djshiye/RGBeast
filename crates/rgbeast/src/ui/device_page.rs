@@ -45,7 +45,7 @@ mod imp {
         #[template_child]
         pub mode_section: TemplateChild<gtk::Box>,
         #[template_child]
-        pub mode_box: TemplateChild<gtk::FlowBox>,
+        pub mode_box: TemplateChild<adw::WrapBox>,
         #[template_child]
         pub color_section: TemplateChild<gtk::Box>,
         #[template_child]
@@ -79,9 +79,7 @@ mod imp {
         #[template_child]
         pub direction_box: TemplateChild<gtk::Box>,
         #[template_child]
-        pub dir_a: TemplateChild<gtk::ToggleButton>,
-        #[template_child]
-        pub dir_b: TemplateChild<gtk::ToggleButton>,
+        pub dir_group: TemplateChild<adw::ToggleGroup>,
         #[template_child]
         pub random_box: TemplateChild<gtk::Box>,
         #[template_child]
@@ -293,28 +291,28 @@ impl DevicePage {
                 }
             }
         ));
-        for (btn, idx) in [(&imp.dir_a, 0usize), (&imp.dir_b, 1usize)] {
-            btn.connect_toggled(glib::clone!(
-                #[weak(rename_to = page)]
-                self,
-                move |b| {
-                    if b.is_active() && !page.imp().syncing.get() {
-                        let dirs = page
-                            .imp()
-                            .info
-                            .borrow()
-                            .mode(&page.imp().state.borrow().mode)
-                            .map(|m| m.directions.clone())
-                            .unwrap_or_default();
-                        if let Some(d) = dirs.get(idx) {
-                            page.imp().state.borrow_mut().direction = d.clone();
-                            page.refresh_preview();
-                            page.schedule_apply();
-                        }
-                    }
+        imp.dir_group.connect_active_notify(glib::clone!(
+            #[weak(rename_to = page)]
+            self,
+            move |g| {
+                let idx = g.active();
+                if page.imp().syncing.get() || idx == gtk::INVALID_LIST_POSITION {
+                    return;
                 }
-            ));
-        }
+                let dirs = page
+                    .imp()
+                    .info
+                    .borrow()
+                    .mode(&page.imp().state.borrow().mode)
+                    .map(|m| m.directions.clone())
+                    .unwrap_or_default();
+                if let Some(d) = dirs.get(idx as usize) {
+                    page.imp().state.borrow_mut().direction = d.clone();
+                    page.refresh_preview();
+                    page.schedule_apply();
+                }
+            }
+        ));
         imp.random_switch.connect_active_notify(glib::clone!(
             #[weak(rename_to = page)]
             self,
@@ -384,7 +382,7 @@ impl DevicePage {
                     }
                 }
             ));
-            imp.mode_box.insert(&b, -1);
+            imp.mode_box.append(&b);
             buttons.push((m.id.clone(), b));
         }
         imp.mode_buttons.replace(buttons);
@@ -486,13 +484,13 @@ impl DevicePage {
         imp.speed_value.set_label(&format!("{}%", state.speed));
         imp.random_switch.set_active(state.random);
         if dirs.len() >= 2 {
-            imp.dir_a.set_label(&direction_label(&dirs[0]));
-            imp.dir_b.set_label(&direction_label(&dirs[1]));
-            if state.direction == dirs[1] {
-                imp.dir_b.set_active(true);
-            } else {
-                imp.dir_a.set_active(true);
+            for (i, d) in dirs.iter().take(2).enumerate() {
+                if let Some(t) = imp.dir_group.toggle(i as u32) {
+                    t.set_label(Some(&direction_label(d)));
+                }
             }
+            imp.dir_group
+                .set_active(if state.direction == dirs[1] { 1 } else { 0 });
         }
 
         // Colour slots.
@@ -722,7 +720,11 @@ impl DevicePage {
         match Rgb::from_hex(&e.text()) {
             Some(c) => {
                 e.remove_css_class("error");
-                self.pick_color(c, true);
+                // Leaving the field with the same value is not an edit.
+                let current = self.current_color(&self.imp().state.borrow());
+                if c != current {
+                    self.pick_color(c, true);
+                }
             }
             None => e.add_css_class("error"),
         }

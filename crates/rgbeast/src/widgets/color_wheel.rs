@@ -48,6 +48,8 @@ mod imp {
             let obj = self.obj();
             obj.set_focusable(true);
             obj.set_cursor_from_name(Some("crosshair"));
+            obj.connect_has_focus_notify(|o| o.queue_draw());
+            obj.announce();
 
             let drag = gtk::GestureDrag::new();
             drag.set_button(gdk::BUTTON_PRIMARY);
@@ -179,7 +181,8 @@ mod imp {
                 crate::widgets::rgba(obj.color(), 1.0),
             );
 
-            if obj.has_focus() {
+            // Keyboard focus only: a click never draws the ring.
+            if obj.has_visible_focus() {
                 let focus = gsk::RoundedRect::from_rect(
                     graphene::Rect::new(
                         cx - outer - 2.0,
@@ -189,7 +192,7 @@ mod imp {
                     ),
                     outer + 2.0,
                 );
-                let accent = obj.color_for_accent();
+                let accent = adw::StyleManager::default().accent_color_rgba();
                 snapshot.append_border(&focus, &[2.0; 4], &[accent; 4]);
             }
         }
@@ -286,7 +289,13 @@ impl ColorWheel {
         }
         imp.saturation.set(s);
         imp.value.set(v);
+        self.announce();
         self.queue_draw();
+    }
+
+    /// Expose the current colour to assistive technology.
+    fn announce(&self) {
+        self.update_property(&[gtk::accessible::Property::ValueText(&self.color().hex())]);
     }
 
     pub fn hue(&self) -> f64 {
@@ -339,6 +348,7 @@ impl ColorWheel {
             }
             _ => return,
         }
+        self.announce();
         self.queue_draw();
         self.emit_by_name::<()>("changed", &[]);
     }
@@ -346,6 +356,7 @@ impl ColorWheel {
     fn nudge_hue(&self, delta: f64) {
         let imp = self.imp();
         imp.hue.set((imp.hue.get() + delta).rem_euclid(360.0));
+        self.announce();
         self.queue_draw();
         self.emit_by_name::<()>("changed", &[]);
     }
@@ -353,6 +364,7 @@ impl ColorWheel {
     fn nudge_value(&self, delta: f64) {
         let imp = self.imp();
         imp.value.set((imp.value.get() + delta).clamp(0.0, 1.0));
+        self.announce();
         self.queue_draw();
         self.emit_by_name::<()>("changed", &[]);
     }
@@ -363,18 +375,5 @@ impl ColorWheel {
             f(&obj);
             None
         })
-    }
-
-    fn color_for_accent(&self) -> gdk::RGBA {
-        self.color_at_css("accent-bg-color")
-            .unwrap_or(gdk::RGBA::new(0.2, 0.5, 0.9, 1.0))
-    }
-
-    fn color_at_css(&self, _name: &str) -> Option<gdk::RGBA> {
-        // GTK 4.14 has no public API to read a CSS variable; use the style
-        // context colour of the widget, which follows the accent through
-        // the `accent` class set by the page.
-        #[allow(deprecated)]
-        Some(self.style_context().color())
     }
 }

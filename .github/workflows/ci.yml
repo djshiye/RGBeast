@@ -37,15 +37,18 @@ jobs:
       - name: Daemon smoke test (session bus, simulated devices)
         run: |
           cargo build -p rgbeastd
-          dbus-run-session -- sh -c '
+          dbus-run-session -- sh -ec '
             ./target/debug/rgbeastd --session --simulate --state-dir "$RUNNER_TEMP/state" &
-            sleep 2
+            for i in $(seq 1 50); do
+              busctl --user status io.github.djshiye.RGBeast1 >/dev/null 2>&1 && break
+              sleep 0.2
+            done
             busctl --user call io.github.djshiye.RGBeast1 /io/github/djshiye/RGBeast1 io.github.djshiye.RGBeast1.Manager ListDevices | grep -q sim:fury
             kill %1'
 
       - name: Meson build and validation tests
         run: |
-          meson setup builddir
+          meson setup builddir --prefix=/usr
           meson compile -C builddir
           meson test -C builddir --print-errorlogs
           DESTDIR="$PWD/stage" meson install -C builddir

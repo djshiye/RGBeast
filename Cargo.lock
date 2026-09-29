@@ -1246,7 +1246,7 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "rgbeast"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "async-channel",
  "futures-lite",
@@ -1264,26 +1264,24 @@ dependencies = [
 
 [[package]]
 name = "rgbeast-core"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "hidapi",
  "i2cdev",
  "serde",
  "serde_json",
  "thiserror",
- "tracing",
 ]
 
 [[package]]
 name = "rgbeastd"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "clap",
  "futures-lite",
  "rgbeast-core",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",

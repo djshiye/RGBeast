@@ -1,129 +1,114 @@
-/* RGBeast: cards on Adwaita's semantic tokens. The chrome stays neutral so the
- * only saturated colour on screen is the light the user chose.
- * Only var(--…) colours and color-mix(): light, dark and accent follow the system. */
+/* RGBeast. The chrome stays neutral so the only saturated colour on screen is
+ * the light the user chose. Every colour comes from libadwaita's tokens through
+ * var(--…) and color-mix(), so light, dark, the system accent, high contrast and
+ * user themes all carry through. Radii are concentric: 12 px surfaces, 10 px
+ * tiles inside them, pills for anything that is a choice. */
 
-headerbar {
-  background: transparent;
-  box-shadow: none;
-}
-
-/* ── Sidebar ─────────────────────────────────────────────────────────────── */
-.sidebar-pane {
-  background: mix(@view_fg_color, @window_bg_color, 0.92);
+/* ── Sidebar: the functional layer ─────────────────────────────────────── */
+.sidebar-heading {
+  padding: 14px 18px 4px 18px;
 }
 listbox.device-list {
-  background: transparent;
-  padding: 4px 8px 8px 8px;
+  padding: 0 6px;
 }
 listbox.device-list > row {
-  margin: 0 0 6px 0;
-  padding: 0;
-  border-radius: 14px;
-  background: @card_bg_color;
-  color: @view_fg_color;
-  box-shadow: 0 1px 2px alpha(black, 0.1),
-              0 0 0 1px alpha(@view_fg_color, 0.06);
-  transition: background 150ms ease-out, box-shadow 150ms ease-out;
+  margin: 0 0 4px 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  transition: background 150ms ease-out;
 }
-listbox.device-list > row:hover {
-  background: mix(@view_fg_color, @card_bg_color, 0.94);
-  box-shadow: 0 2px 6px alpha(black, 0.14),
-              0 0 0 1px alpha(@view_fg_color, 0.08);
+listbox.device-list > row.scene-add {
+  margin-bottom: 8px;
 }
-listbox.device-list > row:selected,
-listbox.device-list > row:selected:hover {
-  background: mix(@card_bg_color, @accent_bg_color, 0.14);
-  color: @view_fg_color;
-  box-shadow: 0 1px 2px alpha(black, 0.1),
-              0 0 0 1.5px alpha(@accent_bg_color, 0.6);
-}
-listbox.device-list > row:selected label { color: inherit; }
-listbox.device-list > row:selected .dim-label { opacity: 0.65; }
-
 .device-kind-icon {
   min-width: 36px;
   min-height: 36px;
-  border-radius: 11px;
-  background: alpha(@accent_bg_color, 0.14);
-  color: @accent_color;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-bg-color) 16%, transparent);
+  color: var(--accent-color);
+}
+/* Colour surfaces are drawn by the widget; the CSS box gives them their
+ * shape, so every radius lives here. */
+colorstrip {
+  border-radius: 999px;
+}
+.scene-swatch {
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 18%),
+              0 0 0 1px color-mix(in srgb, currentColor 10%, transparent);
 }
 .color-strip {
-  min-height: 4px;
-  border-radius: 999px;
+  min-height: 3px;
+  margin-top: 6px;
 }
-.sidebar-heading {
-  padding: 14px 16px 4px 16px;
+.status-bar {
+  padding: 8px 16px 10px 16px;
 }
 
-/* ── Editor ──────────────────────────────────────────────────────────────── */
-.card-section {
-  border-radius: 14px;
-  background: @card_bg_color;
+/* ── Editor: the content layer ─────────────────────────────────────────── */
+.section {
   padding: 16px;
-  box-shadow: 0 1px 2px alpha(black, 0.1),
-              0 0 0 1px alpha(@view_fg_color, 0.06);
-}
-.section-title {
-  font-weight: 600;
-  opacity: 0.55;
-  font-size: 0.85em;
-  letter-spacing: 0.04em;
 }
 .led-preview {
-  border-radius: 18px;
-  min-height: 200px;
+  border-radius: 12px;
+  min-height: 140px;
   background: #16171d;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-              0 1px 2px alpha(black, 0.2);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 7%),
+              0 1px 2px rgb(0 0 0 / 15%);
 }
 
-/* chips: pills that read as a segmented control without a heavy frame */
-flowbox.chips > flowboxchild {
-  padding: 0;
-  margin: 3px;
-  border-radius: 999px;
-}
-flowbox.chips > flowboxchild:focus {
-  outline: none;
-}
-flowbox.chips > flowboxchild:focus > button {
-  box-shadow: 0 0 0 3px alpha(@accent_bg_color, 0.25);
-}
+/* Effect chips: pills that read as a segmented control without a frame. */
 button.chip {
   border-radius: 999px;
   padding: 6px 14px;
-  min-height: 28px;
-  background: alpha(@view_fg_color, 0.05);
-  border: 1px solid alpha(@view_fg_color, 0.08);
+  min-height: 30px;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 8%, transparent);
   box-shadow: none;
   transition: background 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out;
 }
 button.chip:hover {
-  background: alpha(@view_fg_color, 0.09);
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+button.chip:active {
+  background: color-mix(in srgb, currentColor 14%, transparent);
 }
 button.chip:checked {
-  background: alpha(@accent_bg_color, 0.18);
-  border-color: alpha(@accent_bg_color, 0.6);
-  color: @accent_color;
+  background: color-mix(in srgb, var(--accent-bg-color) 20%, transparent);
+  border-color: color-mix(in srgb, var(--accent-bg-color) 60%, transparent);
+  color: var(--accent-color);
   font-weight: 600;
 }
+button.chip:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-bg-color) 50%, transparent);
+  outline-offset: 2px;
+}
 
-/* swatches: round dots with a hairline ring, larger ring when selected */
+/* Swatches: round dots with a hairline ring; a double ring when selected. */
 button.swatch {
   min-width: 28px;
   min-height: 28px;
   padding: 0;
   border-radius: 999px;
   border: none;
-  box-shadow: 0 0 0 1px alpha(@view_fg_color, 0.14),
-              inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  background: none;
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 16%, transparent),
+              inset 0 0 0 1px rgb(255 255 255 / 25%);
   transition: transform 120ms ease-out, box-shadow 120ms ease-out;
 }
-button.swatch:hover { transform: scale(1.08); }
+button.swatch:hover {
+  transform: scale(1.08);
+}
 button.swatch:checked {
-  box-shadow: 0 0 0 2px @window_bg_color,
-              0 0 0 4px @accent_bg_color,
-              inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 0 2px var(--card-bg-color),
+              0 0 0 4px var(--accent-bg-color),
+              inset 0 0 0 1px rgb(255 255 255 / 25%);
+}
+button.swatch:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-bg-color) 50%, transparent);
+  outline-offset: 3px;
 }
 button.swatch.color-slot {
   min-width: 34px;
@@ -131,34 +116,32 @@ button.swatch.color-slot {
 }
 entry.hex-entry {
   border-radius: 999px;
-  min-height: 32px;
+  min-height: 34px;
 }
 .hero-color {
-  border-radius: 12px;
+  border-radius: 10px;
   min-height: 44px;
   min-width: 44px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2),
-              0 0 0 1px alpha(@view_fg_color, 0.1);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 20%),
+              0 0 0 1px color-mix(in srgb, currentColor 10%, transparent);
 }
 scale.brightness trough {
   min-height: 8px;
   border-radius: 999px;
 }
-.status-bar {
-  padding: 6px 12px;
-  border-top: 1px solid alpha(@view_fg_color, 0.07);
+
+/* ── Feedback ──────────────────────────────────────────────────────────── */
+.applied-box {
+  opacity: 0;
+  transition: opacity 400ms ease-out;
+}
+.applied-box.shown {
+  opacity: 1;
+  transition: opacity 150ms ease-out;
 }
 .applied-dot {
   min-width: 8px;
   min-height: 8px;
   border-radius: 999px;
-  background: @success_color;
-  transition: opacity 400ms ease-out;
-}
-.scene-swatch {
-  min-width: 36px;
-  min-height: 36px;
-  border-radius: 11px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2),
-              0 0 0 1px alpha(@view_fg_color, 0.1);
+  background: var(--success-color);
 }

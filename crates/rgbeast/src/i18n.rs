@@ -1,5 +1,5 @@
 //! Translation helpers. Blueprint strings use `_()`; Rust strings use `gettext`.
-pub use gettextrs::gettext;
+pub use gettextrs::{gettext, ngettext};
 
 pub fn init() {
     use gettextrs::{

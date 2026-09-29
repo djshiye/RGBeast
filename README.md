@@ -7,12 +7,13 @@ Guidelines (`docs/DESIGN.md`), delivered as an RPM.
 
 RGBeast drives the lighting of an ASUS Aura motherboard (and the addressable fans plugged into its
 headers), Kingston Fury DDR5 memory and ASUS graphics cards from one window that follows the GNOME
-style and Apple's Human Interface Guidelines in spirit: the chrome stays neutral, the only saturated
-colour on screen is the light you chose.
+style and Apple's Human Interface Guidelines in spirit: navigation on the platform's sidebar
+material, content on cards, neutral chrome, and the only saturated colour on screen is the light
+you chose.
 
 ![RGBeast, All Devices](docs/screenshots/all-devices.png)
 
-| Direct mode, dark style | Kingston Fury, Slide with four colours | Narrow window |
+| Motherboard, dark style | Kingston Fury, light style | Narrow window |
 |---|---|---|
 | ![](docs/screenshots/dark-direct.png) | ![](docs/screenshots/fury.png) | ![](docs/screenshots/narrow.png) |
 
@@ -50,7 +51,7 @@ run write there. The daemon's D-Bus API only knows colours, modes, brightness, s
 Build the RPM (or download it from the CI artifacts) and install it:
 
 ```bash
-sudo dnf install ./rgbeast-1.0.0-1.fc44.x86_64.rpm
+sudo dnf install ./rgbeast-1.0.1-1.fc44.x86_64.rpm
 ```
 
 The package creates the `rgbeast` system user, installs udev rules for the controllers, loads
@@ -60,7 +61,7 @@ a device is missing, use **Scan for Devices** (Ctrl+R) and check `docs/TESTING.m
 ### First-run checklist
 
 1. `systemctl status rgbeastd` is active.
-2. `rgbeastd --scan` (run as root or as the `rgbeast` user) lists your devices with their locations.
+2. `sudo -u rgbeast /usr/libexec/rgbeastd --scan` lists your devices with their locations.
 3. The sidebar shows the motherboard, the memory and the graphics card.
 4. In **Preferences › Addressable Headers**, set the LED count of each header (12 per Arctic fan).
 
@@ -69,9 +70,21 @@ a device is missing, use **Scan for Devices** (Ctrl+R) and check `docs/TESTING.m
 ```bash
 sudo dnf install rust cargo meson gtk4-devel libadwaita-devel systemd-devel \
      blueprint-compiler desktop-file-utils appstream gettext
-meson setup builddir
+meson setup builddir --prefix=/usr
 meson compile -C builddir
 sudo meson install -C builddir
+```
+
+`--prefix=/usr` matters: the system D-Bus only reads policies from `/usr/share/dbus-1/system.d`,
+so an install under `/usr/local` leaves the daemon unable to own its bus name. The RPM runs the
+steps below through Fedora's file triggers; after a plain `meson install` do them by hand once:
+
+```bash
+sudo systemd-sysusers                                   # creates the rgbeast user and group
+sudo udevadm control --reload && sudo udevadm trigger -s hidraw -s i2c-dev
+sudo modprobe i2c-dev
+sudo busctl call org.freedesktop.DBus / org.freedesktop.DBus ReloadConfig
+sudo systemctl daemon-reload && sudo systemctl enable --now rgbeastd
 ```
 
 For development without installing: `cargo build`, then in one terminal
@@ -82,27 +95,30 @@ Fury sticks and a TUF RX 9070.
 ### Build the RPM
 
 ```bash
-cargo vendor vendor && tar -cJf rgbeast-1.0.0-vendor.tar.xz vendor
-# source tarball named rgbeast-1.0.0.tar.gz with an rgbeast-1.0.0/ prefix
-rpmdev-setuptree && cp rgbeast-1.0.0*.tar.* ~/rpmbuild/SOURCES/
+cargo vendor vendor && tar -cJf rgbeast-1.0.1-vendor.tar.xz vendor
+# source tarball named rgbeast-1.0.1.tar.gz with an rgbeast-1.0.1/ prefix
+rpmdev-setuptree && cp rgbeast-1.0.1*.tar.* ~/rpmbuild/SOURCES/
 rpmbuild -ba build-aux/rgbeast.spec
 ```
 
-CI (`.github/workflows/rgbeast-ci.yml`) runs formatting, clippy, unit tests, a daemon smoke test on a
+CI (`.github/workflows/ci.yml`) runs formatting, clippy, unit tests, a daemon smoke test on a
 private session bus, the Meson validation tests and an RPM build on Fedora 44 and Rawhide.
 
 ## Design
 
-The principles and how each one shows up in the app are in `docs/DESIGN.md`. In short: cards on Adwaita tokens, hairline rings, 14 px radii,
-pill chips for effects, a colour wheel that is drawn (not a stock dialog), a preview card that is
-the one dark surface even in light mode because lights are read against dark, and effect animation
-in the preview only (30 fps cap, off with reduced motion). Every control applies immediately and
-the header shows a quiet "Applied".
+The principles and how each one shows up in the app are in `docs/DESIGN.md`. In short: the sidebar
+is the platform's navigation material and the editor's sections are libadwaita cards, every colour
+is a `var(--…)` token so light, dark, high contrast, the system accent and user themes carry
+through; pill chips for effects, a segmented control for direction, a colour wheel that is drawn
+(not a stock dialog), a preview card that is the one dark surface even in light mode because lights
+are read against dark, and effect animation in the preview only (30 fps cap, off with reduced
+motion). Every control applies immediately and the header shows a quiet "Applied".
 
 ## Keyboard
 
-`Ctrl+R` / `F5` scan for devices · `Ctrl+,` preferences · `Ctrl+W` close · `Ctrl+Q` quit ·
-arrow keys on the colour wheel nudge hue (left/right) and brightness (up/down), Shift for bigger steps.
+`Ctrl+?` lists every shortcut in the app. `Ctrl+R` / `F5` scan for devices · `Ctrl+,` preferences ·
+`Ctrl+W` close · `Ctrl+Q` quit · arrow keys on the colour wheel nudge hue (left/right) and
+brightness (up/down), Shift for bigger steps.
 
 ## Files
 

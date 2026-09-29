@@ -2,7 +2,7 @@
 %global rgbeast_user rgbeast
 
 Name:           rgbeast
-Version:        1.0.0
+Version:        1.0.1
 Release:        1%{?dist}
 Summary:        RGB lighting control for GNOME
 
@@ -30,7 +30,6 @@ Requires:       libadwaita%{?_isa} >= 1.5
 Requires:       hicolor-icon-theme
 Requires:       polkit
 Requires:       dbus-common
-%{?sysusers_requires_compat}
 
 %description
 RGBeast controls the RGB lighting of ASUS Aura motherboards and the addressable
@@ -54,16 +53,18 @@ export RUSTFLAGS="%{build_rustflags}"
 %check
 %meson_test
 
-%pre
-%sysusers_create_compat %{_sysusersdir}/rgbeast.conf
+# The rgbeast user, udev rules, D-Bus policy and unit files are picked up by
+# the sysusers, udev, dbus and systemd file triggers of Fedora's rpm.
 
 %post
 %systemd_post rgbeastd.service
-# Load i2c-dev now so the first run works without a reboot; reload udev rules.
-/sbin/modprobe i2c-dev >/dev/null 2>&1 || :
-/bin/udevadm control --reload >/dev/null 2>&1 || :
-/bin/udevadm trigger --subsystem-match=hidraw --subsystem-match=i2c-dev >/dev/null 2>&1 || :
-/bin/systemctl enable --now rgbeastd.service >/dev/null 2>&1 || :
+# Load i2c-dev and apply the new udev rules now, so the first run works
+# without a reboot, then start the service. (A personal package: Fedora's
+# preset policy would normally decide whether a service is enabled.)
+modprobe i2c-dev >/dev/null 2>&1 || :
+udevadm control --reload >/dev/null 2>&1 || :
+udevadm trigger --subsystem-match=hidraw --subsystem-match=i2c-dev >/dev/null 2>&1 || :
+systemctl enable --now rgbeastd.service >/dev/null 2>&1 || :
 
 %preun
 %systemd_preun rgbeastd.service
@@ -92,5 +93,8 @@ export RUSTFLAGS="%{build_rustflags}"
 %{_modulesloaddir}/rgbeast.conf
 
 %changelog
+* Tue Sep 29 2026 djshiye <dreamfantom16@gmail.com> - 1.0.1-1
+- Redesigned app chrome on libadwaita materials; daemon and discovery fixes
+
 * Mon Sep 28 2026 djshiye <dreamfantom16@gmail.com> - 1.0.0-1
 - First release

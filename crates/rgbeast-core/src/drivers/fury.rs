@@ -6,7 +6,7 @@ use std::{collections::HashMap, thread, time::Duration};
 
 use crate::{
     Driver, Error, Result, Rgb,
-    model::{ColorMode, DeviceInfo, DeviceKind, DeviceState, ModeInfo, ZoneInfo},
+    model::{DeviceInfo, DeviceKind, DeviceState, ModeInfo, ZoneInfo},
     transport::Smbus,
 };
 
@@ -688,11 +688,6 @@ impl<B: Smbus> Driver for Fury<B> {
 
 pub fn modes() -> Vec<ModeInfo> {
     mode_list()
-}
-
-#[allow(dead_code)]
-fn _assert_color_modes() {
-    let _ = ColorMode::PerLed;
 }
 
 #[cfg(test)]

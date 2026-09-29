@@ -1,5 +1,5 @@
 project('rgbeast', 'rust',
-  version: '1.0.0',
+  version: '1.0.1',
   meson_version: '>= 1.0.0',
   license: 'MIT',
   default_options: ['buildtype=release'],
@@ -13,7 +13,6 @@ prefix = get_option('prefix')
 bindir = prefix / get_option('bindir')
 libexecdir = prefix / get_option('libexecdir')
 datadir = prefix / get_option('datadir')
-sysconfdir = get_option('sysconfdir')
 
 dependency('gtk4', version: '>= 4.14')
 dependency('libadwaita-1', version: '>= 1.5')

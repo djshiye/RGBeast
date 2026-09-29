@@ -104,8 +104,11 @@ Modes (value written to `0x09`): Static `0x00`, Rainbow/Spectrum `0x01`, Rhythm 
 
 - I2C adapters: `/sys/bus/i2c/devices/i2c-N/name`. `SMBus PIIX4 adapter port 0 at 0b00` is the
   AMD chipset bus that carries the DIMMs. `AMDGPU DM i2c OEM bus` (kernel 6.15+) is the GPU
-  lighting bus. The PCI parent is found by walking `/sys/bus/i2c/devices/i2c-N/device/..` until
-  a directory with `vendor` and `device` files appears; `subsystem_vendor` `0x1043` is ASUS.
+  lighting bus. `/sys/bus/i2c/devices/i2c-N` is a symlink into the owning device's tree
+  (`/sys/devices/pci…/0000:03:00.0/i2c-N`), so the PCI parent is found by resolving the link and
+  walking up until a directory with `vendor` and `device` files appears; `subsystem_vendor`
+  `0x1043` is ASUS. Only PIIX4 port 0 is treated as the chipset bus, and only DIMM slots that
+  have an SPD device (`<bus>-005<slot>`) are probed for lighting controllers.
 - Opening `/dev/i2c-N` and selecting the slave uses `I2C_SLAVE`; RGBeast never uses
   `I2C_SLAVE_FORCE`, so it cannot talk to an address a kernel driver already owns.
 - hidraw devices: `/sys/class/hidraw/hidrawN/device/uevent` (`HID_ID=0003:00000B05:000019AF`),
