@@ -3,7 +3,7 @@
 
 use crate::{
     Driver, Result, Rgb,
-    drivers::{aura_usb, ene, fury},
+    drivers::{aura_usb, fury, sapphire},
     model::{DeviceInfo, DeviceKind, DeviceState, ZoneInfo, validate},
 };
 
@@ -63,7 +63,7 @@ impl Driver for SimDevice {
 pub fn devices() -> Vec<Box<dyn Driver>> {
     let board = DeviceInfo {
         id: "sim:aura-usb".into(),
-        name: "ASUS TUF Gaming B650-Plus WiFi".into(),
+        name: "ASUS TUF Gaming B850-Plus WiFi".into(),
         vendor: "ASUS".into(),
         kind: DeviceKind::Motherboard,
         location: "Simulated USB controller".into(),
@@ -109,16 +109,16 @@ pub fn devices() -> Vec<Box<dyn Driver>> {
         can_save: false,
     };
     let gpu = DeviceInfo {
-        id: "sim:ene-gpu".into(),
-        name: "ASUS TUF Gaming Radeon RX 9070".into(),
-        vendor: "ASUS".into(),
+        id: "sim:sapphire-gpu".into(),
+        name: "Sapphire Radeon RX 9070 XT Pure".into(),
+        vendor: "Sapphire".into(),
         kind: DeviceKind::Gpu,
-        location: "Simulated AMDGPU OEM I2C bus, address 0x67".into(),
-        driver: "ene-smbus".into(),
-        version: "AUMA0-E6K5-0107".into(),
-        zones: vec![ZoneInfo::fixed("zone1", "Center", 5)],
-        modes: ene::modes(),
-        can_save: true,
+        location: "Simulated AMDGPU OEM I2C bus, address 0x28".into(),
+        driver: "sapphire".into(),
+        version: "Nitro Glow V3".into(),
+        zones: vec![ZoneInfo::fixed("logo", "Logo", 1)],
+        modes: sapphire::modes(),
+        can_save: false,
     };
     let mut rainbow = DeviceState {
         mode: "rainbow".into(),
@@ -134,7 +134,7 @@ pub fn devices() -> Vec<Box<dyn Driver>> {
         Box::new(SimDevice::new(ram, rainbow)),
         Box::new(SimDevice::new(
             gpu,
-            DeviceState::static_color(Rgb::new(0xE0, 0x1B, 0x24)),
+            DeviceState::static_color(Rgb::new(0xFF, 0x00, 0xFF)),
         )),
     ]
 }

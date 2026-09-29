@@ -115,3 +115,26 @@ Modes (value written to `0x09`): Static `0x00`, Rainbow/Spectrum `0x01`, Rhythm 
   `I2C_SLAVE_FORCE`, so it cannot talk to an address a kernel driver already owns.
 - hidraw devices: `/sys/class/hidraw/hidrawN/device/uevent` (`HID_ID=0003:00000B05:000019AF`),
   report descriptor at `.../device/report_descriptor` for the usage page.
+
+## Sapphire Nitro Glow V3 (graphics cards)
+
+- The card's own I2C bus (`AMDGPU DM i2c OEM bus`), address `0x28`, PCI subsystem vendor `0x1DA2`.
+  Plain 8-bit registers, no transaction protocol; a write takes effect at once. One zone.
+- Models by subsystem id: `0x3490` RX 9070 XT Pure, `0x4499` RX 9070 Pure, `0xE489`/`0x4892`
+  RX 9070 XT Nitro+, `0xE493` RX 9060 XT Nitro+ (earlier Nitro+ cards from the RX 5700 XT use the
+  same controller).
+
+| Register | Meaning |
+|---|---|
+| `0x0F` | External control: 1 hands the LEDs to host software; RGBeast writes 0 |
+| `0x10` | Mode: `0x00` Rainbow, `0x01` Runway, `0x02` Colour Cycle, `0x03` Serial, `0x04` Sapphire Blue, `0x05` Audio, `0x06` Custom (static colour), `0x07` Off, `0xFF` External |
+| `0x11` | Runway speed 5..50 (higher is faster); `0x12` runway repeat count |
+| `0x13` | Colour-cycle speed 1..30 (lower is faster) |
+| `0x15` | Rainbow speed 10..250 (higher is faster) |
+| `0x16` | Serial speed 5..255 (lower is faster) |
+| `0x1A`..`0x1C` | Red, green, blue of the custom colour |
+| `0x3E` | Brightness (scale unknown; RGBeast scales the colour instead) |
+
+Detection: a byte read at `0x28` succeeds and register `0x10` holds a known mode. On the target
+machine the card read mode `0x06` and colour `FF 00 FF` at first contact, which is exactly what it
+was showing.

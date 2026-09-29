@@ -207,6 +207,11 @@ pub fn map_group_state(info: &DeviceInfo, group: &DeviceState) -> Option<DeviceS
         state.brightness = 0;
         return Some(state);
     }
+    if has("static") && !group.colors.is_empty() {
+        // No such effect on this device: at least show the group's colour.
+        state.mode = "static".into();
+        return Some(state);
+    }
     None
 }
 
@@ -244,5 +249,12 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(map_group_state(&info, &g).unwrap().mode, "spectrum-cycle");
+        // A device without the effect still shows the group's colour.
+        info.modes = rgbeast_core::drivers::sapphire::modes();
+        let g = DeviceState {
+            mode: "breathing".into(),
+            ..Default::default()
+        };
+        assert_eq!(map_group_state(&info, &g).unwrap().mode, "static");
     }
 }

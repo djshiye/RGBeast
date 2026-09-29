@@ -50,6 +50,12 @@ First install on the machine
   Dynamic Lighting does (the controller's LampArray reports the board as a single lamp; nothing
   can count the LEDs on a WS2812 chain). The LED count is only needed for painting single lights
   and for the preview; a header of unknown length receives the primary colour in direct mode.
+- New driver: Sapphire Nitro Glow V3 (Nitro+, Pure and Toxic cards, I2C address 0x28 on the
+  card's own bus). Static colour with brightness, Rainbow, Spectrum Cycle, Runway and Serial with
+  speed; state is read back at start. Discovery treats Sapphire cards as GPUs and names the model
+  from the PCI subsystem id. Verified on an RX 9070 XT Pure.
+- All Devices: a device that lacks the chosen effect now shows the group's colour statically
+  instead of being left alone.
 - Fury: the mode-change preamble writes 0 to the index register on every stick. Giving the second
   stick its slot index froze it on real Beast DDR5 hardware (writes accepted, never rendered).
 - Fury detection tolerates one odd signature byte and paces its reads: on real Beast DDR5 sticks

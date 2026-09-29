@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     Driver,
-    drivers::{aura_usb, ene, fury},
+    drivers::{aura_usb, ene, fury, sapphire},
     model::DeviceKind,
     transport::{hid::HidrawTransport, smbus::LinuxSmbus},
 };
@@ -173,6 +173,17 @@ pub fn board_name() -> String {
 }
 
 fn gpu_name(p: &PciIds) -> String {
+    // Sapphire models by subsystem id (the device id is shared across a family).
+    if p.subsystem_vendor == sapphire::SAPPHIRE_VENDOR {
+        let model = match p.subsystem_device {
+            0x3490 => "Radeon RX 9070 XT Pure",
+            0x4499 => "Radeon RX 9070 Pure",
+            0xE489 | 0x4892 => "Radeon RX 9070 XT Nitro+",
+            0xE493 => "Radeon RX 9060 XT Nitro+",
+            _ => "Radeon graphics card",
+        };
+        return format!("Sapphire {model}");
+    }
     let family = match (p.vendor, p.device) {
         (AMD_VENDOR, 0x7550) => "Radeon RX 9070",
         (AMD_VENDOR, 0x7551) => "Radeon RX 9070 XT",
@@ -268,8 +279,34 @@ pub fn discover(config: &DiscoveryConfig) -> Discovered {
                         continue;
                     }
                 };
+                let card = bus.pci.as_ref().map(gpu_name).unwrap_or_default();
+                if bus.pci.as_ref().map(|p| p.subsystem_vendor) == Some(sapphire::SAPPHIRE_VENDOR) {
+                    if !sapphire::probe(&mut smbus) {
+                        log.push(format!(
+                            "i2c-{} ({}): no Nitro Glow controller at 0x28 on {card}",
+                            bus.number, bus.name
+                        ));
+                        continue;
+                    }
+                    let id = format!("sapphire:i2c-{}:0x28", bus.number);
+                    match sapphire::Sapphire::new(
+                        smbus,
+                        id,
+                        card.clone(),
+                        format!("I2C bus {} ({}), address 0x28", bus.number, bus.name),
+                    ) {
+                        Ok(d) => {
+                            log.push(format!(
+                                "Sapphire Nitro Glow on i2c-{} ({card})",
+                                bus.number
+                            ));
+                            devices.push(Box::new(d));
+                        }
+                        Err(e) => log.push(format!("i2c-{}: {e}", bus.number)),
+                    }
+                    continue;
+                }
                 if !ene::probe(&mut smbus, ene::GPU_ADDRESS) {
-                    let card = bus.pci.as_ref().map(gpu_name).unwrap_or_default();
                     let hint = match bus.pci.as_ref().map(|p| p.subsystem_vendor) {
                         Some(ASUS_VENDOR) | None => String::new(),
                         Some(v) => format!(
@@ -282,11 +319,11 @@ pub fn discover(config: &DiscoveryConfig) -> Discovered {
                     ));
                     continue;
                 }
-                let name = bus
-                    .pci
-                    .as_ref()
-                    .map(gpu_name)
-                    .unwrap_or_else(|| "ASUS graphics card".into());
+                let name = if card.is_empty() {
+                    "ASUS graphics card".to_string()
+                } else {
+                    card
+                };
                 let id = format!("ene:i2c-{}:0x67", bus.number);
                 match ene::Ene::new(
                     smbus,
@@ -510,6 +547,14 @@ mod tests {
             gpu_name(buses[0].pci.as_ref().unwrap()),
             "ASUS Radeon RX 9070"
         );
+        let pure = PciIds {
+            vendor: 0x1002,
+            device: 0x7550,
+            subsystem_vendor: 0x1DA2,
+            subsystem_device: 0x3490,
+            class: 0x030000,
+        };
+        assert_eq!(gpu_name(&pure), "Sapphire Radeon RX 9070 XT Pure");
         assert_eq!(dimm_slots_in(&devices, 1), vec![1, 3]);
         assert_eq!(dimm_slots_in(&devices, 2), (0u8..8).collect::<Vec<_>>());
         fs::remove_dir_all(&dir).ok();

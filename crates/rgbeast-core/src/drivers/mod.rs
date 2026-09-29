@@ -3,6 +3,7 @@
 pub mod aura_usb;
 pub mod ene;
 pub mod fury;
+pub mod sapphire;
 
 /// Map the universal 0..=100 speed onto a hardware range whose ends may be
 /// in either order (`slowest` is what 0 maps to, `fastest` what 100 maps to).
