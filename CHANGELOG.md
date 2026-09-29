@@ -50,6 +50,8 @@ First install on the machine
   Dynamic Lighting does (the controller's LampArray reports the board as a single lamp; nothing
   can count the LEDs on a WS2812 chain). The LED count is only needed for painting single lights
   and for the preview; a header of unknown length receives the primary colour in direct mode.
+- Fury: the mode-change preamble writes 0 to the index register on every stick. Giving the second
+  stick its slot index froze it on real Beast DDR5 hardware (writes accepted, never rendered).
 - Fury detection tolerates one odd signature byte and paces its reads: on real Beast DDR5 sticks
   the "R" register reads 0x02 (always on one stick, sometimes on the other) and single reads can
   return 0xFFFF, which left one of two sticks undetected.

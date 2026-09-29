@@ -76,8 +76,10 @@ Header 3.
 - Transaction: write `0x53` to register `0x08` (begin), set registers, write `0x44` to `0x08`
   (end/apply). Signature: registers `0x01..0x04` read "F","U","R","Y"; register `0x06` is the model
   (`0x10` Beast, `0x11` Renegade, `0x12` Beast White, `0x15` Beast v2; DDR4 `0x21`, `0x23`).
-- When the mode changes, a preamble is sent first: begin, write the slot index to register `0x0B`
-  on each stick (0 for unsynchronised modes), apply.
+- When the mode changes, a preamble is sent first: begin, write 0 to register `0x0B` on each
+  stick, apply. Register `0x0B` is described elsewhere as a per-slot sync index (0..3); on Beast
+  DDR5 (model `0x15`) a stick given a non-zero value keeps accepting writes into its registers but
+  never renders them again until the index is set back to 0. Verified on hardware 2026-09-29.
 
 | Register | Meaning |
 |---|---|

@@ -499,12 +499,17 @@ impl<B: Smbus> Fury<B> {
         Ok(())
     }
 
-    /// Sent when the mode changes: begin, slot index per stick, end.
-    fn preamble(&mut self, synchronise: bool) -> Result<()> {
+    /// Sent when the mode changes: begin, index register on each stick, end.
+    ///
+    /// The index is always 0. Giving each stick its slot position here (the
+    /// documented "synchronise" value) makes a Beast DDR5 stick with a
+    /// non-zero index accept every later transaction into its registers and
+    /// never render it; verified on real hardware, where writing 0 back
+    /// unfroze the stick at once.
+    fn preamble(&mut self, _synchronise: bool) -> Result<()> {
         self.begin()?;
         for i in 0..self.slots.len() {
-            let index = if synchronise { (i % 4) as u8 } else { 0 };
-            self.write_raw(i, REG_INDEX, index)?;
+            self.write_raw(i, REG_INDEX, 0)?;
         }
         thread::sleep(DELAY);
         self.end()
@@ -820,8 +825,9 @@ mod tests {
         d.apply(&st).unwrap();
         let ops = d.bus().writes();
         assert_eq!(*ops[0], Op::WriteByteData(0x61, REG_APPLY, BEGIN));
+        // Index 0 on every stick: a non-zero index freezes real sticks.
         assert_eq!(*ops[2], Op::WriteByteData(0x61, REG_INDEX, 0));
-        assert_eq!(*ops[3], Op::WriteByteData(0x63, REG_INDEX, 1));
+        assert_eq!(*ops[3], Op::WriteByteData(0x63, REG_INDEX, 0));
         assert_eq!(*ops[4], Op::WriteByteData(0x61, REG_APPLY, END));
         let regs = &d.bus().regs;
         assert_eq!(regs[&(0x61, REG_MODE)], 0x01);
