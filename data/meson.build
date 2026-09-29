@@ -80,4 +80,10 @@ configure_file(
 install_data('rgbeast.modules-load.conf', rename: 'rgbeast.conf', install_dir: prefix / 'lib' / 'modules-load.d')
 
 # polkit's ITS rules are not available everywhere, so the policy is installed untranslated.
-install_data('io.github.djshiye.rgbeast.policy', install_dir: datadir / 'polkit-1' / 'actions')
+configure_file(
+  input: 'io.github.djshiye.rgbeast.policy.in',
+  output: 'io.github.djshiye.rgbeast.policy',
+  configuration: daemon_conf,
+  install: true,
+  install_dir: datadir / 'polkit-1' / 'actions',
+)

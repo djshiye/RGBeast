@@ -14,5 +14,8 @@
       <allow_inactive>no</allow_inactive>
       <allow_active>yes</allow_active>
     </defaults>
+    <!-- The daemon runs as an unprivileged user. Since polkit 124 only root or
+         the action's owner may check authorisation for other identities. -->
+    <annotate key="org.freedesktop.policykit.owner">unix-user:@rgbeast_user@</annotate>
   </action>
 </policyconfig>

@@ -294,12 +294,6 @@ impl<T: HidTransport> AuraUsb<T> {
         self.send_effect_color(start, ch.effect_leds, color, shutdown)
     }
 
-    fn active_channels(&self) -> Vec<usize> {
-        (0..self.channels.len())
-            .filter(|i| self.info.zones[*i].leds > 0)
-            .collect()
-    }
-
     #[cfg(test)]
     pub(crate) fn transport(&self) -> &T {
         &self.hid
@@ -311,20 +305,30 @@ impl<T: HidTransport> Driver for AuraUsb<T> {
         &self.info
     }
 
+    /// Effects and colours go to every channel, whatever its configured
+    /// length: the controller's effect engine drives a header as one unit and
+    /// a WS2812 chain simply takes as much data as it has LEDs. The LED count
+    /// only decides what direct mode sends per light (and what the preview
+    /// shows); a header whose count is still unknown gets the primary colour
+    /// on the longest chain the controller supports.
     fn apply(&mut self, state: &DeviceState) -> Result<()> {
         let mode = mode_byte(&state.mode)?;
         let color = state.primary_color().scaled(state.brightness);
-        for idx in self.active_channels() {
+        for idx in 0..self.channels.len() {
             self.set_channel_mode(idx, mode, color, false)?;
         }
         if mode == MODE_DIRECT {
-            for idx in self.active_channels() {
+            for idx in 0..self.channels.len() {
                 let zone = self.info.zones[idx].clone();
-                let colors: Vec<Rgb> = state
-                    .zone_colors(&zone.id, zone.leds)
-                    .into_iter()
-                    .map(|c| c.scaled(state.brightness))
-                    .collect();
+                let colors: Vec<Rgb> = if zone.leds == 0 {
+                    vec![color; MAX_ADDRESSABLE_LEDS as usize]
+                } else {
+                    state
+                        .zone_colors(&zone.id, zone.leds)
+                        .into_iter()
+                        .map(|c| c.scaled(state.brightness))
+                        .collect()
+                };
                 let ch = self.channels[idx].direct_channel;
                 self.send_direct(ch, &colors)?;
             }
@@ -430,8 +434,12 @@ mod tests {
         assert_eq!(w[2][..6], [0xEC, 0x35, 0x01, 0x00, 0x00, 0x01]);
         assert_eq!(w[3][..5], [0xEC, 0x36, 0x01, 0x00, 0x00]); // mask 0x0100
         assert_eq!(w[3][5 + 8 * 3..5 + 9 * 3], [255, 128, 0]);
-        // Header 2 has 0 LEDs: nothing sent.
-        assert_eq!(w.len(), 4);
+        // Header 2 has no configured length but still gets the effect and
+        // colour: effect channel 2, one effect LED at start 9.
+        assert_eq!(w[4][..6], [0xEC, 0x35, 0x02, 0x00, 0x00, 0x01]);
+        assert_eq!(w[5][..5], [0xEC, 0x36, 0x02, 0x00, 0x00]); // mask 0x0200
+        assert_eq!(w[5][5 + 9 * 3..5 + 10 * 3], [255, 128, 0]);
+        assert_eq!(w.len(), 6);
     }
 
     #[test]
@@ -453,18 +461,24 @@ mod tests {
         };
         d.apply(&st).unwrap();
         let w = &d.transport().written[n0..];
-        // Effect packets first (mainboard, header 1), no colour packets in direct.
+        // Effect packets first (mainboard, header 1, header 2), no colour
+        // packets in direct.
         assert_eq!(w[0][..6], [0xEC, 0x35, 0x00, 0x00, 0x00, 0xFF]);
         assert_eq!(w[1][..6], [0xEC, 0x35, 0x01, 0x00, 0x00, 0xFF]);
-        // Mainboard direct: channel 4, 8 LEDs (white default), apply bit set.
-        assert_eq!(w[2][..5], [0xEC, 0x40, 0x84, 0x00, 0x08]);
+        assert_eq!(w[2][..6], [0xEC, 0x35, 0x02, 0x00, 0x00, 0xFF]);
+        // Mainboard direct: channel 4, 8 LEDs (primary colour), apply bit set.
+        assert_eq!(w[3][..5], [0xEC, 0x40, 0x84, 0x00, 0x08]);
         // Header 1 direct: 45 LEDs in 20 + 20 + 5.
-        assert_eq!(w[3][..5], [0xEC, 0x40, 0x00, 0x00, 0x14]);
-        assert_eq!(w[3][5..8], [0, 0, 255]);
-        assert_eq!(w[4][..5], [0xEC, 0x40, 0x00, 0x14, 0x14]);
-        assert_eq!(w[5][..5], [0xEC, 0x40, 0x80, 0x28, 0x05]);
-        assert_eq!(w[5][5 + 4 * 3..5 + 5 * 3], [44, 0, 211]);
-        assert_eq!(w.len(), 6);
+        assert_eq!(w[4][..5], [0xEC, 0x40, 0x00, 0x00, 0x14]);
+        assert_eq!(w[4][5..8], [0, 0, 255]);
+        assert_eq!(w[5][..5], [0xEC, 0x40, 0x00, 0x14, 0x14]);
+        assert_eq!(w[6][..5], [0xEC, 0x40, 0x80, 0x28, 0x05]);
+        assert_eq!(w[6][5 + 4 * 3..5 + 5 * 3], [44, 0, 211]);
+        // Header 2, length unknown: the primary colour on 120 LEDs, six packets.
+        assert_eq!(w[7][..5], [0xEC, 0x40, 0x01, 0x00, 0x14]);
+        assert_eq!(w[7][5..8], [0, 0, 255]);
+        assert_eq!(w[12][..5], [0xEC, 0x40, 0x81, 0x64, 0x14]);
+        assert_eq!(w.len(), 13);
     }
 
     #[test]

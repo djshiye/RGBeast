@@ -44,6 +44,12 @@ First install on the machine
   found or a node could not be opened, and SMBus permission problems are reported by name.
 - The graphics card in the target machine is a Sapphire RX 9070, not an ASUS one; the Detection
   Log now says which vendor a card is from when no ENE controller answers.
+- polkit: the action declares the daemon user as its owner; since polkit 124 only root or the
+  owner may check authorisation for other identities, so every change was refused.
+- Addressable headers get effects and colours whatever their configured length, like Windows
+  Dynamic Lighting does (the controller's LampArray reports the board as a single lamp; nothing
+  can count the LEDs on a WS2812 chain). The LED count is only needed for painting single lights
+  and for the preview; a header of unknown length receives the primary colour in direct mode.
 - Fury detection tolerates one odd signature byte and paces its reads: on real Beast DDR5 sticks
   the "R" register reads 0x02 (always on one stick, sometimes on the other) and single reads can
   return 0xFFFF, which left one of two sticks undetected.

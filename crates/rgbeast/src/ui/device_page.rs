@@ -406,7 +406,9 @@ impl DevicePage {
                 spin.set_tooltip_text(Some(&gettext("Number of LEDs connected to this header")));
                 let unit = gtk::Label::new(Some(&gettext("LEDs")));
                 unit.add_css_class("dim-label");
-                row.set_subtitle(&gettext("Set the number of LEDs on the strip or fan chain"));
+                row.set_subtitle(&gettext(
+                    "Effects and colours reach this header at any length. Set the LED count to paint single lights and see them in the preview (12 per Arctic fan).",
+                ));
                 row.add_suffix(&spin);
                 row.add_suffix(&unit);
                 let zone_id = z.id.clone();
