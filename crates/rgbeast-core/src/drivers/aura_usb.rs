@@ -283,7 +283,9 @@ impl<T: HidTransport> AuraUsb<T> {
     }
 
     /// Effect mode for one channel: the effect packet, then (unless direct
-    /// or off) the colour packet covering that channel's LEDs.
+    /// or off) the colour packet covering that channel's LEDs and the effect
+    /// packet again. On the target board a new colour only showed after the
+    /// next effect packet, so a single effect-then-colour needed two clicks.
     fn set_channel_mode(&mut self, idx: usize, mode: u8, color: Rgb, shutdown: bool) -> Result<()> {
         let ch = self.channels[idx].clone();
         self.send_effect(ch.effect_channel, mode, shutdown)?;
@@ -291,7 +293,8 @@ impl<T: HidTransport> AuraUsb<T> {
             return Ok(());
         }
         let start: u8 = self.channels[..idx].iter().map(|c| c.effect_leds).sum();
-        self.send_effect_color(start, ch.effect_leds, color, shutdown)
+        self.send_effect_color(start, ch.effect_leds, color, shutdown)?;
+        self.send_effect(ch.effect_channel, mode, shutdown)
     }
 
     #[cfg(test)]
@@ -425,21 +428,25 @@ mod tests {
         st.brightness = 100;
         d.apply(&st).unwrap();
         let w = &d.transport().written[n0..];
-        // Mainboard: effect on channel 0 + colour packet for 8 LEDs at start 0.
+        // Mainboard: effect on channel 0, colour packet for 8 LEDs at start
+        // 0, effect again (the colour only renders on an effect packet).
         assert_eq!(w[0][..6], [0xEC, 0x35, 0x00, 0x00, 0x00, 0x01]);
         assert_eq!(w[1][..5], [0xEC, 0x36, 0x00, 0xFF, 0x00]); // mask 0x00FF
         assert_eq!(w[1][5..8], [255, 128, 0]);
         assert_eq!(w[1][5 + 7 * 3..5 + 8 * 3], [255, 128, 0]);
+        assert_eq!(w[2], w[0]);
         // Header 1 (12 LEDs): effect channel 1, one effect LED at start 8.
-        assert_eq!(w[2][..6], [0xEC, 0x35, 0x01, 0x00, 0x00, 0x01]);
-        assert_eq!(w[3][..5], [0xEC, 0x36, 0x01, 0x00, 0x00]); // mask 0x0100
-        assert_eq!(w[3][5 + 8 * 3..5 + 9 * 3], [255, 128, 0]);
+        assert_eq!(w[3][..6], [0xEC, 0x35, 0x01, 0x00, 0x00, 0x01]);
+        assert_eq!(w[4][..5], [0xEC, 0x36, 0x01, 0x00, 0x00]); // mask 0x0100
+        assert_eq!(w[4][5 + 8 * 3..5 + 9 * 3], [255, 128, 0]);
+        assert_eq!(w[5], w[3]);
         // Header 2 has no configured length but still gets the effect and
         // colour: effect channel 2, one effect LED at start 9.
-        assert_eq!(w[4][..6], [0xEC, 0x35, 0x02, 0x00, 0x00, 0x01]);
-        assert_eq!(w[5][..5], [0xEC, 0x36, 0x02, 0x00, 0x00]); // mask 0x0200
-        assert_eq!(w[5][5 + 9 * 3..5 + 10 * 3], [255, 128, 0]);
-        assert_eq!(w.len(), 6);
+        assert_eq!(w[6][..6], [0xEC, 0x35, 0x02, 0x00, 0x00, 0x01]);
+        assert_eq!(w[7][..5], [0xEC, 0x36, 0x02, 0x00, 0x00]); // mask 0x0200
+        assert_eq!(w[7][5 + 9 * 3..5 + 10 * 3], [255, 128, 0]);
+        assert_eq!(w[8], w[6]);
+        assert_eq!(w.len(), 9);
     }
 
     #[test]

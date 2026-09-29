@@ -74,7 +74,7 @@ impl Device {
             ],
             can_save: false,
         };
-        Self::new(info, DeviceState::static_color(Rgb::new(0x99, 0xC1, 0xF1)))
+        Self::new(info, DeviceState::static_color(Rgb::new(0x00, 0x80, 0xFF)))
     }
 
     pub fn id(&self) -> String {

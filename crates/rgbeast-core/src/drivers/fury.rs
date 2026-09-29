@@ -155,7 +155,8 @@ const MODES: &[ModeDef] = &[
         byte: 0x03,
         colors: (1, 10),
         per_led: false,
-        speed: Some((10, 1)),
+        // Ticks per ramp, not a raw speed register value; see `breath_ramp`.
+        speed: Some((80, 5)),
         direction: false,
         background: false,
     },
@@ -499,14 +500,17 @@ impl<B: Smbus> Fury<B> {
         Ok(())
     }
 
-    /// Sent when the mode changes: begin, index register on each stick, end.
+    /// Begin, index register on each stick, end. This restarts every stick's
+    /// animation at the same moment, so it is sent before each change to an
+    /// animated mode, not only on a mode change: otherwise sticks that drifted
+    /// apart (or kept running through a reboot) stay out of step.
     ///
     /// The index is always 0. Giving each stick its slot position here (the
     /// documented "synchronise" value) makes a Beast DDR5 stick with a
     /// non-zero index accept every later transaction into its registers and
     /// never render it; verified on real hardware, where writing 0 back
     /// unfroze the stick at once.
-    fn preamble(&mut self, _synchronise: bool) -> Result<()> {
+    fn preamble(&mut self) -> Result<()> {
         self.begin()?;
         for i in 0..self.slots.len() {
             self.write_raw(i, REG_INDEX, 0)?;
@@ -570,9 +574,9 @@ impl<B: Smbus> Driver for Fury<B> {
             self.current_mode = self.read_raw(0, REG_MODE).ok();
             self.end()?;
         }
-        if self.current_mode != Some(mode_byte) {
-            let sync = !matches!(def.id, "rain" | "firework" | "direct");
-            self.preamble(sync)?;
+        let animated = !matches!(def.id, "static" | "direct");
+        if animated || self.current_mode != Some(mode_byte) {
+            self.preamble()?;
         }
 
         self.begin()?;
@@ -674,14 +678,15 @@ impl<B: Smbus> Driver for Fury<B> {
                     self.set_all(REG_DYNAMIC_FADE_B, 1)?;
                 }
                 "breath" => {
+                    let ramp = breath_ramp(state.speed, slowest, fastest);
                     self.set_all(REG_SPEED, 0)?;
-                    self.set_all(REG_BREATH_MIN_TO_MID, raw.saturating_mul(3))?;
-                    self.set_all(REG_BREATH_MID_TO_MAX, raw)?;
-                    self.set_all(REG_BREATH_MAX_TO_MID, raw)?;
-                    self.set_all(REG_BREATH_MID_TO_MIN, raw.saturating_mul(3))?;
-                    self.set_all(REG_BREATH_MIN_HOLD, 1)?;
+                    self.set_all(REG_BREATH_MIN_TO_MID, ramp)?;
+                    self.set_all(REG_BREATH_MID_TO_MAX, ramp)?;
+                    self.set_all(REG_BREATH_MAX_TO_MID, ramp)?;
+                    self.set_all(REG_BREATH_MID_TO_MIN, ramp)?;
+                    self.set_all(REG_BREATH_MIN_HOLD, (ramp / 4).max(1))?;
                     self.set_all(REG_BREATH_MAX_BRIGHTNESS, 100)?;
-                    self.set_all(REG_BREATH_MID_BRIGHTNESS, 64)?;
+                    self.set_all(REG_BREATH_MID_BRIGHTNESS, BREATH_MID_BRIGHTNESS)?;
                     self.set_all(REG_BREATH_MIN_BRIGHTNESS, 0)?;
                 }
                 "rain" | "firework" => {
@@ -703,6 +708,19 @@ impl<B: Smbus> Driver for Fury<B> {
         self.set_all(REG_NUM_SLOTS, (self.slots.len().min(4)) as u8)?;
         self.end()
     }
+}
+
+/// Brightness at the midpoint of each breath ramp. About perceptual mid-grey,
+/// so with equal ramp times the fade looks even instead of lingering dim and
+/// flashing through the bright half (which reads as a gap between breaths).
+const BREATH_MID_BRIGHTNESS: u8 = 20;
+
+/// Ticks for each of the four breath ramps. Geometric between the ends so
+/// every step of the slider changes the pace by the same ratio.
+fn breath_ramp(speed: u32, slowest: i32, fastest: i32) -> u8 {
+    let s = speed.min(100) as f64 / 100.0;
+    let ticks = slowest as f64 * (fastest as f64 / slowest as f64).powf(s);
+    ticks.round().clamp(1.0, 255.0) as u8
 }
 
 pub fn modes() -> Vec<ModeInfo> {
@@ -785,9 +803,8 @@ mod tests {
         st.brightness = 80;
         d.apply(&st).unwrap();
         let ops: Vec<&Op> = d.bus().writes();
-        // Begin on both sticks first (initial mode read), then the preamble
-        // (mode differs from the register's 0 default? static is 0x00, so no
-        // preamble), then the real transaction.
+        // Begin on both sticks first (initial mode read). Static is 0x00,
+        // the register's value here, and not animated: no preamble.
         assert_eq!(*ops[0], Op::WriteByteData(0x61, REG_APPLY, BEGIN));
         assert_eq!(*ops[1], Op::WriteByteData(0x63, REG_APPLY, BEGIN));
         assert!(
@@ -812,7 +829,7 @@ mod tests {
     }
 
     #[test]
-    fn mode_change_sends_preamble_with_slot_indices() {
+    fn mode_change_sends_preamble_with_zero_indices() {
         let mut d = device();
         d.apply(&DeviceState::static_color(Rgb::WHITE)).unwrap();
         d.bus.ops.clear();
@@ -890,6 +907,46 @@ mod tests {
         let regs = &d.bus().regs;
         assert_eq!(regs[&(0x61, REG_SPEED)], 8 + 11);
         assert_eq!(regs[&(0x63, REG_SPEED)], 8);
+    }
+
+    #[test]
+    fn animated_modes_restart_in_step_on_every_apply() {
+        let mut d = device();
+        let mut st = DeviceState {
+            mode: "breath".into(),
+            colors: vec![Rgb::new(80, 0, 108)],
+            ..Default::default()
+        };
+        d.apply(&st).unwrap();
+        d.bus.ops.clear();
+        st.colors = vec![Rgb::new(255, 0, 0)];
+        d.apply(&st).unwrap();
+        let ops = d.bus().writes();
+        assert_eq!(*ops[2], Op::WriteByteData(0x61, REG_INDEX, 0));
+        assert_eq!(*ops[3], Op::WriteByteData(0x63, REG_INDEX, 0));
+    }
+
+    #[test]
+    fn breath_ramps_are_even_and_scale_with_speed() {
+        let mut d = device();
+        let mut st = DeviceState {
+            mode: "breath".into(),
+            speed: 0,
+            ..Default::default()
+        };
+        d.apply(&st).unwrap();
+        let regs = &d.bus().regs;
+        for reg in REG_BREATH_MIN_TO_MID..=REG_BREATH_MID_TO_MIN {
+            assert_eq!(regs[&(0x61, reg)], 80);
+        }
+        assert_eq!(regs[&(0x61, REG_BREATH_MIN_HOLD)], 20);
+        st.speed = 50;
+        d.apply(&st).unwrap();
+        assert_eq!(d.bus().regs[&(0x63, REG_BREATH_MID_TO_MAX)], 20);
+        st.speed = 100;
+        d.apply(&st).unwrap();
+        assert_eq!(d.bus().regs[&(0x63, REG_BREATH_MIN_TO_MID)], 5);
+        assert_eq!(d.bus().regs[&(0x63, REG_BREATH_MIN_HOLD)], 1);
     }
 
     #[test]

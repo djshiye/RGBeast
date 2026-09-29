@@ -18,7 +18,7 @@ no code is copied from those projects.
 | `0xB0` | Config table request | Reply: byte 1 = `0x30`, bytes 4..64 = 60-byte table |
 | `0x52` | "Gen 1" init: `EC 52 53 00 01` | Sent once after reading the table |
 | `0x40` | Direct colours | byte 2 = channel, or `0x80 \| channel` on the last packet ("apply"); byte 3 = first LED index; byte 4 = LED count (max 20 per packet); bytes 5.. = R,G,B per LED |
-| `0x35` | Effect | byte 2 = effect channel; byte 3 = 0; byte 4 = 1 for the shutdown effect, else 0; byte 5 = mode |
+| `0x35` | Effect | byte 2 = effect channel; byte 3 = 0; byte 4 = 1 for the shutdown effect, else 0; byte 5 = mode. On the target board a colour sent with `0x36` after the effect needed a second click to show, so RGBeast sends effect, colour, effect (fix not yet confirmed on hardware) |
 | `0x36` | Effect colour | bytes 2..3 = big-endian LED mask (`((1<<count)-1)<<start`); byte 4 = shutdown flag; bytes 5 + 3*start.. = R,G,B per LED |
 | `0x3F` | Commit to flash: `EC 3F 55` | Makes the current effect the power-on default |
 
@@ -76,8 +76,11 @@ Header 3.
 - Transaction: write `0x53` to register `0x08` (begin), set registers, write `0x44` to `0x08`
   (end/apply). Signature: registers `0x01..0x04` read "F","U","R","Y"; register `0x06` is the model
   (`0x10` Beast, `0x11` Renegade, `0x12` Beast White, `0x15` Beast v2; DDR4 `0x21`, `0x23`).
-- When the mode changes, a preamble is sent first: begin, write 0 to register `0x0B` on each
-  stick, apply. Register `0x0B` is described elsewhere as a per-slot sync index (0..3); on Beast
+- Before any change to an animated mode (and on any mode change), a preamble is sent first:
+  begin, write 0 to register `0x0B` on each stick, apply. The intent is to restart every stick's
+  animation together; sticks that have drifted apart stayed out of step when only the mode
+  registers were rewritten (not yet confirmed on hardware). Register `0x0B` is described
+  elsewhere as a per-slot sync index (0..3); on Beast
   DDR5 (model `0x15`) a stick given a non-zero value keeps accepting writes into its registers but
   never renders them again until the index is set back to 0. Verified on hardware 2026-09-29.
 
@@ -88,7 +91,9 @@ Header 3.
 | `0x0D` | delay |
 | `0x0E` | speed (most modes: lower is faster) |
 | `0x12..0x15` | Dynamic hold/fade times |
-| `0x16..0x1D` | Breath timing and brightness levels |
+| `0x16..0x19` | Breath ramp times: min→mid, mid→max, max→mid, mid→min (ticks; tick length unmeasured) |
+| `0x1A` | Breath rest at minimum brightness (ticks) |
+| `0x1B..0x1D` | Breath max, mid and min brightness (0..100) |
 | `0x20` | brightness 0..100 |
 | `0x23..0x25` | background colour R,G,B |
 | `0x26` | length |

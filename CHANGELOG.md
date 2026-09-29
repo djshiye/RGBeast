@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Palette swatches and the All Devices default are fully saturated colours; the pastel
+  GNOME palette came out washed-out and whitish on LEDs.
+- Aura USB: the effect packet is sent again after the colour packet. The board only showed a new
+  colour on the next effect packet, so a colour took two clicks to appear.
+- Fury Breath: four equal ramps split at 20 % brightness with a short rest at the bottom, and a
+  speed range eight times wider (80 ticks per ramp at 0 %, 5 at 100 %, geometric in between).
+  The old 3:1 ramps at 64 % spent most of the cycle dim, so the slider read as the gap between
+  breaths, and 0 % was still fast.
+- Fury: the preamble (index 0 on every stick, apply) is sent before every change to an animated
+  mode, not only on a mode change. It restarts all sticks together, so sticks that drifted apart,
+  or kept running out of step through a reboot, are back in step at start-up and on every edit.
+
 ## 1.0.1 (2026-09-29)
 
 First run on the target machine (Fedora 44, GNOME 50, libadwaita 1.9). Reviewed against Apple's
