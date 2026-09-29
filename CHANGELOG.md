@@ -13,6 +13,10 @@
 - Fury: the preamble (index 0 on every stick, apply) is sent before every change to an animated
   mode, not only on a mode change. It restarts all sticks together, so sticks that drifted apart,
   or kept running out of step through a reboot, are back in step at start-up and on every edit.
+- Fury: the register cache is dropped on every mode change and after any failed apply. A stick
+  whose Breath settings had been changed behind the driver's back kept them, because the driver
+  skipped rewriting values it believed were already set; it breathed between pink and light
+  pink while the other stick breathed normally.
 
 ## 1.0.1 (2026-09-29)
 

@@ -553,18 +553,18 @@ impl<B: Smbus> Fury<B> {
         Ok(())
     }
 
-    #[cfg(test)]
-    pub(crate) fn bus(&self) -> &B {
-        &self.bus
-    }
-}
-
-impl<B: Smbus> Driver for Fury<B> {
-    fn info(&self) -> &DeviceInfo {
-        &self.info
+    /// Drop the register cache so the next apply writes every register.
+    fn forget(&mut self) {
+        for c in &mut self.cache {
+            c.clear();
+        }
     }
 
-    fn apply(&mut self, state: &DeviceState) -> Result<()> {
+    /// One full apply. On a mode change the register cache is dropped first:
+    /// the new mode's timing registers may hold values the cache does not
+    /// know about (another program, or a stick that lost them), and a skipped
+    /// write leaves that stick rendering the effect differently.
+    fn transaction(&mut self, state: &DeviceState) -> Result<()> {
         let def = mode_def(&state.mode)?;
         let mode_byte = def.byte;
         if self.current_mode.is_none() {
@@ -575,6 +575,9 @@ impl<B: Smbus> Driver for Fury<B> {
             self.end()?;
         }
         let animated = !matches!(def.id, "static" | "direct");
+        if self.current_mode != Some(mode_byte) {
+            self.forget();
+        }
         if animated || self.current_mode != Some(mode_byte) {
             self.preamble()?;
         }
@@ -707,6 +710,27 @@ impl<B: Smbus> Driver for Fury<B> {
         self.set_all(REG_BRIGHTNESS, state.brightness.min(100) as u8)?;
         self.set_all(REG_NUM_SLOTS, (self.slots.len().min(4)) as u8)?;
         self.end()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn bus(&self) -> &B {
+        &self.bus
+    }
+}
+
+impl<B: Smbus> Driver for Fury<B> {
+    fn info(&self) -> &DeviceInfo {
+        &self.info
+    }
+
+    fn apply(&mut self, state: &DeviceState) -> Result<()> {
+        let res = self.transaction(state);
+        if res.is_err() {
+            // Some writes may have landed and some not: trust nothing.
+            self.forget();
+            self.current_mode = None;
+        }
+        res
     }
 }
 
@@ -947,6 +971,21 @@ mod tests {
         d.apply(&st).unwrap();
         assert_eq!(d.bus().regs[&(0x63, REG_BREATH_MIN_TO_MID)], 5);
         assert_eq!(d.bus().regs[&(0x63, REG_BREATH_MIN_HOLD)], 1);
+    }
+
+    #[test]
+    fn mode_change_rewrites_cached_registers() {
+        let mut d = device();
+        let breath = DeviceState {
+            mode: "breath".into(),
+            ..Default::default()
+        };
+        d.apply(&breath).unwrap();
+        d.apply(&DeviceState::static_color(Rgb::WHITE)).unwrap();
+        // A stick loses its breath settings behind the driver's back.
+        d.bus.regs.insert((0x61, REG_BREATH_MIN_BRIGHTNESS), 64);
+        d.apply(&breath).unwrap();
+        assert_eq!(d.bus().regs[&(0x61, REG_BREATH_MIN_BRIGHTNESS)], 0);
     }
 
     #[test]
