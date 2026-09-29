@@ -52,8 +52,11 @@ run write there. The daemon's D-Bus API only knows colours, modes, brightness, s
 Build the RPM (or download it from the CI artifacts) and install it:
 
 ```bash
-sudo dnf install ./rgbeast-1.0.1-1.fc44.x86_64.rpm
+sudo dnf config-manager addrepo --from-repofile=https://djshiye.github.io/RGBeast/rgbeast.repo
+sudo dnf install rgbeast
 ```
+
+(or build the RPM yourself, below, and `sudo dnf install ./rgbeast-*.rpm`)
 
 The package creates the `rgbeast` system user, installs udev rules for the controllers, loads
 `i2c-dev`, and enables `rgbeastd.service`. Launch **RGBeast** from the app grid. No reboot is needed; if
@@ -67,20 +70,18 @@ a device is missing, use **Scan for Devices** (Ctrl+R) and check `docs/TESTING.m
 4. Pick a colour: the fans follow. To paint single lights or see the fans in the preview, set the
    header's LED count in **Preferences › Addressable Headers** (12 per Arctic fan).
 
-## Upgrading from the repository
+## Upgrading with DNF
 
-Every push to `main` builds the RPM on CI and attaches it to the rolling **latest** release. The
-repository is private, so DNF cannot read it as a repository; the installed `rgbeast-upgrade`
-command downloads the newest build with the GitHub CLI and lets DNF install it:
+Every push to `main` builds the RPM on CI and publishes it as a DNF repository on GitHub Pages.
+Add the repository once, then upgrade like any other package:
 
 ```bash
-sudo dnf install gh && gh auth login     # once
-rgbeast-upgrade
+sudo dnf config-manager addrepo --from-repofile=https://djshiye.github.io/RGBeast/rgbeast.repo
+sudo dnf upgrade rgbeast
 ```
 
-Each CI build carries a higher release number (`1.0.1-1.<commit count>`), so DNF treats it as an
-upgrade. When the repository becomes public, the same RPMs can be served as a plain DNF
-repository from GitHub Pages instead.
+Each CI build carries a higher release number (`1.0.1-1.<commit count>`), so DNF always sees the
+newest build as an upgrade. The packages are unsigned (`gpgcheck=0`); Fedora 44 only.
 
 ## Build from source
 

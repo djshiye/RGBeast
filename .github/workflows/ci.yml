@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   fedora:
@@ -12,7 +17,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        release: ["44", "rawhide"]
+        # Rawhide only on manual runs: it doubles the time of every push.
+        release: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["44", "rawhide"]' || '["44"]') }}
     container:
       image: fedora:${{ matrix.release }}
     steps:
@@ -31,6 +37,16 @@ jobs:
             gtk4-devel libadwaita-devel systemd-devel blueprint-compiler \
             desktop-file-utils appstream gettext rpm-build rpmdevtools rpmlint \
             cargo-rpm-macros systemd-rpm-macros python3 tar xz dbus-daemon
+
+      - name: Cache Cargo registry and build output
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-${{ matrix.release }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-${{ matrix.release }}-
 
       - name: Format
         run: cargo fmt --check
@@ -83,27 +99,35 @@ jobs:
           path: ~/rpmbuild/RPMS/x86_64/rgbeast-*.rpm
           if-no-files-found: error
 
-  # Every push to main refreshes the rolling "latest" release with the Fedora
-  # 44 RPM, which `rgbeast-upgrade` installs on the target machine.
-  release:
-    name: Publish latest build
+  # Every push to main publishes a DNF repository on GitHub Pages:
+  # https://djshiye.github.io/RGBeast/rgbeast.repo
+  repo:
+    name: Publish DNF repository
     needs: fedora
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    container:
+      image: fedora:44
     permissions:
-      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: rgbeast-rpm-fedora-44
-          path: dist
-      - name: Update the "latest" release
-        env:
-          GH_TOKEN: ${{ github.token }}
+          path: site/fedora-44
+      - name: Build repository metadata
         run: |
-          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create latest dist/rgbeast-*.rpm \
-            --title "Latest build ($(git rev-parse --short HEAD))" \
-            --notes "Built from main at $(git rev-parse HEAD). Install with rgbeast-upgrade." \
-            --latest=false --prerelease
+          dnf install -y createrepo_c
+          createrepo_c site/fedora-44
+          cp build-aux/rgbeast.repo site/
+          printf '<!doctype html><title>RGBeast DNF repository</title><pre>sudo dnf config-manager addrepo --from-repofile=https://djshiye.github.io/RGBeast/rgbeast.repo\nsudo dnf install rgbeast</pre><p>Built from commit %s.</p>' "${GITHUB_SHA}" > site/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

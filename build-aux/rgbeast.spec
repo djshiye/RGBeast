@@ -33,8 +33,6 @@ Requires:       polkit
 Requires:       dbus-common
 # udev rule sets the device nodes' group ACL entry with setfacl
 Requires:       acl
-# rgbeast-upgrade fetches the newest build from the GitHub release
-Recommends:     gh
 
 %description
 RGBeast controls the RGB lighting of ASUS Aura motherboards and the addressable
@@ -84,7 +82,6 @@ if [ $1 -gt 1 ]; then systemctl try-restart rgbeastd.service >/dev/null 2>&1 || 
 %license LICENSE
 %doc README.md docs/PLAN.md docs/PROTOCOLS.md docs/TESTING.md
 %{_bindir}/%{name}
-%{_bindir}/%{name}-upgrade
 %{_libexecdir}/rgbeastd
 %{_mandir}/man1/%{name}.1*
 %{_mandir}/man8/rgbeastd.8*
