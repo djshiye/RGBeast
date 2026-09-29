@@ -21,6 +21,13 @@ impl LinuxSmbus {
         if !path.exists() {
             return Err(Error::Smbus(format!("{} does not exist", path.display())));
         }
+        // Open the node once up front so a permission problem is reported
+        // here, by name, instead of making every probe fail silently.
+        std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .map_err(|e| Error::Smbus(format!("cannot open {}: {e}", path.display())))?;
         Ok(LinuxSmbus {
             path,
             devs: HashMap::new(),

@@ -24,7 +24,7 @@ you chose.
 | ASUS TUF / ROG / Prime boards with the Aura USB controller (`0b05:19af` and siblings): on-board LEDs, 12 V RGB headers, Addressable Gen 2 headers | USB HID, direct per-LED colour or 9 hardware effects, power-on default storable | implemented, unit-tested on recorded packets |
 | Arctic P12 PWM PST A-RGB fans (and any WS2812 strip) on those headers | through the board; set the LED count per header in Preferences (12 per Arctic fan) | implemented |
 | Kingston Fury Beast / Renegade DDR5 RGB (and DDR4) | chipset SMBus, 12 LEDs per stick, 19 hardware effects with speed, direction and up to 10 colours | implemented, unit-tested |
-| ASUS TUF / ROG Strix / Astral graphics cards (ENE controller at `0x67`), including the TUF Radeon RX 9070 | the card's own I2C bus (kernel 6.15+), direct per-LED colour or 9 hardware effects | implemented, unit-tested |
+| ASUS TUF / ROG Strix / Astral graphics cards (ENE controller at `0x67`) | the card's own I2C bus (kernel 6.15+), direct per-LED colour or 9 hardware effects | implemented, unit-tested; not exercised on my machine, whose RX 9070 turned out to be a Sapphire card |
 | Other ENE-based memory (G.Skill Trident Z, Geil) and older ASUS Aura SMBus boards | same ENE driver | detected, untested |
 
 The **All Devices** page sets everything at once, choosing the closest effect each device has.

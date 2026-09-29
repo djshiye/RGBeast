@@ -35,6 +35,13 @@ Packaging
 - README documents `--prefix=/usr` and the post-install steps for a Meson install; the unit no
   longer lists 21 redundant `DeviceAllow` lines; the CI smoke test can actually fail.
 
+First install on the machine
+- The RPM's post-install waits for udev to finish re-owning the device nodes before starting the
+  service; the daemon also scans again 10 s and 30 s after start when nothing was found or a node
+  could not be opened. SMBus permission problems are reported by name in the Detection Log.
+- The graphics card in the target machine is a Sapphire RX 9070, not an ASUS one; the Detection
+  Log now says which vendor a card is from when no ENE controller answers.
+
 ## 1.0.0 (2026-09-28)
 
 First release, built in a cloud environment against simulated devices; hardware bring-up is

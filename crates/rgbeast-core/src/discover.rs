@@ -269,8 +269,15 @@ pub fn discover(config: &DiscoveryConfig) -> Discovered {
                     }
                 };
                 if !ene::probe(&mut smbus, ene::GPU_ADDRESS) {
+                    let card = bus.pci.as_ref().map(gpu_name).unwrap_or_default();
+                    let hint = match bus.pci.as_ref().map(|p| p.subsystem_vendor) {
+                        Some(ASUS_VENDOR) | None => String::new(),
+                        Some(v) => format!(
+                            " (the card is from vendor 0x{v:04x}, not ASUS; RGBeast has no driver for its lighting)"
+                        ),
+                    };
                     log.push(format!(
-                        "i2c-{} ({}): no ENE controller at 0x67",
+                        "i2c-{} ({}): no ENE controller at 0x67 on {card}{hint}",
                         bus.number, bus.name
                     ));
                     continue;

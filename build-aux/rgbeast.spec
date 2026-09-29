@@ -64,6 +64,7 @@ export RUSTFLAGS="%{build_rustflags}"
 modprobe i2c-dev >/dev/null 2>&1 || :
 udevadm control --reload >/dev/null 2>&1 || :
 udevadm trigger --subsystem-match=hidraw --subsystem-match=i2c-dev >/dev/null 2>&1 || :
+udevadm settle --timeout=5 >/dev/null 2>&1 || :
 systemctl enable --now rgbeastd.service >/dev/null 2>&1 || :
 
 %preun

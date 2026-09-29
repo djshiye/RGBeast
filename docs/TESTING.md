@@ -67,6 +67,10 @@ sudo -u rgbeast /usr/libexec/rgbeastd --scan   # what the daemon sees, with its 
 
 ## 4. Graphics card
 
+The RX 9070 in the target machine is a Sapphire card (PCI subsystem `1da2:3490`), not an ASUS
+one, so there is no ENE controller at 0x67 and RGBeast does not drive it. The daemon's Detection
+Log says so. The steps below apply to ASUS cards.
+
 1. Select the card. Modes and colours apply immediately.
 2. **Store as Power-On Lighting** writes the ENE save value; reboot to confirm.
 3. If the card is missing, capture `sudo i2cdetect -l` and `sudo i2cdump -y <gpu-bus> 0x67 b` and

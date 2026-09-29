@@ -102,24 +102,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
-    // At boot the daemon can start before udev has applied the rules or
-    // before amdgpu has created the GPU's bus. If a device this machine had
-    // last time is missing, look once more a little later.
+    // At boot (or right after installation) the daemon can start before udev
+    // has applied the rules or before amdgpu has created the GPU's bus. If
+    // nothing was found, a device this machine had last time is missing, or a
+    // node could not be opened, look again after 10 s and once more at 30 s.
     if !args.simulate {
         let known = store.known_devices();
         let retry_worker = worker.clone();
         tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-            let Ok(found) = retry_worker.list().await else {
-                return;
-            };
-            let missing: Vec<&String> = known
-                .iter()
-                .filter(|id| !found.iter().any(|d| &d.id == *id))
-                .collect();
-            if !missing.is_empty() {
-                tracing::info!("devices missing after boot ({missing:?}), scanning again");
-                retry_worker.rescan().await.ok();
+            for delay in [10u64, 20] {
+                tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+                let Ok(found) = retry_worker.list().await else {
+                    return;
+                };
+                let log = retry_worker.log().await.unwrap_or_default();
+                let denied = log.iter().any(|l| l.contains("Permission denied"));
+                let missing: Vec<&String> = known
+                    .iter()
+                    .filter(|id| !found.iter().any(|d| &d.id == *id))
+                    .collect();
+                if found.is_empty() || denied || !missing.is_empty() {
+                    tracing::info!(
+                        "scanning again ({} found, {} missing, permission problems: {denied})",
+                        found.len(),
+                        missing.len()
+                    );
+                    retry_worker.rescan().await.ok();
+                } else {
+                    return;
+                }
             }
         });
     }
