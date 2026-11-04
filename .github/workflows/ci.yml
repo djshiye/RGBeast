@@ -1,5 +1,11 @@
 name: RGBeast CI
 
+# Every push and pull request builds and tests one x86_64 RPM on Fedora 44,
+# the oldest supported release: its library sonames are forward-compatible,
+# so the same package serves every newer Fedora. Pushes to main also sign it,
+# publish the signed DNF repository on GitHub Pages and install it from there
+# in clean Fedora 44 and 45 containers.
+
 on:
   push:
     branches: [main]
@@ -8,7 +14,11 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  APP: rgbeast
+  SITE_URL: https://djshiye.github.io/RGBeast
 
 jobs:
   fedora:
@@ -21,6 +31,8 @@ jobs:
         release: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["44", "rawhide"]' || '["44"]') }}
     container:
       image: fedora:${{ matrix.release }}
+    outputs:
+      evr: ${{ steps.rpm.outputs.evr }}
     steps:
       # git first: without it checkout downloads a tarball and the commit
       # count used for the RPM release number is unavailable.
@@ -36,7 +48,30 @@ jobs:
           dnf install -y rust cargo clippy rustfmt meson ninja-build gcc \
             gtk4-devel libadwaita-devel systemd-devel blueprint-compiler \
             desktop-file-utils appstream gettext rpm-build rpmdevtools rpmlint \
-            cargo-rpm-macros systemd-rpm-macros python3 tar xz dbus-daemon
+            cargo-rpm-macros systemd-rpm-macros python3 tar xz dbus-daemon gnupg2
+
+      # The only step that sees the signing secret, before any project code
+      # runs: it exports the public half for the package and forgets the rest.
+      - name: Public signing key
+        env:
+          RPM_SIGNING_KEY: ${{ secrets.RPM_SIGNING_KEY }}
+        run: |
+          rpmdev-setuptree
+          export GNUPGHOME=$(mktemp -d)
+          if [ -n "$RPM_SIGNING_KEY" ]; then
+            printf '%s\n' "$RPM_SIGNING_KEY" | gpg --batch --quiet --import
+          elif [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            # Pull requests from forks get no secrets: build with a throwaway key.
+            gpg --batch --passphrase '' --quick-gen-key 'Throwaway CI key' rsa2048 sign 1d
+          else
+            echo "::error::The RPM_SIGNING_KEY secret is not set for this repository."
+            exit 1
+          fi
+          gpg --batch --armor --export-options export-minimal --export > ~/rpmbuild/SOURCES/RPM-GPG-KEY-djshiye
+          gpgconf --kill all
+          rm -rf "$GNUPGHOME"
+
+      # ---- Tests ----
 
       - name: Cache Cargo registry and build output
         uses: actions/cache@v4
@@ -77,6 +112,7 @@ jobs:
           DESTDIR="$PWD/stage" meson install -C builddir
 
       - name: Build RPM
+        id: rpm
         run: |
           VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           git config --global --add safe.directory "$PWD"
@@ -87,47 +123,116 @@ jobs:
           tar --no-wildcards-match-slash \
               --exclude=./target --exclude=./builddir --exclude=./stage --exclude=./.git \
               --transform "s,^\./,rgbeast-${VERSION}/," -czf "$DIST/rgbeast-${VERSION}.tar.gz" .
-          rpmdev-setuptree
           cp "$DIST"/rgbeast-${VERSION}*.tar.* ~/rpmbuild/SOURCES/
           rpmbuild -ba --define "release_suffix .$BUILD" build-aux/rgbeast.spec
           rpmlint build-aux/rgbeast.spec ~/rpmbuild/RPMS/x86_64/rgbeast-*.rpm || true
+          mkdir -p out
+          cp ~/rpmbuild/RPMS/x86_64/rgbeast-[0-9]*.x86_64.rpm ~/rpmbuild/SRPMS/rgbeast-[0-9]*.src.rpm out/
+          rpm -qp --requires out/*.x86_64.rpm
+          echo "evr=$(rpm -qp --qf '%{VERSION}-%{RELEASE}' out/*.x86_64.rpm)" >> "$GITHUB_OUTPUT"
 
-      - name: Upload RPM
+      - name: No Python version pinned
+        run: |
+          if rpm -qp --requires out/*.x86_64.rpm | grep -E '^python\(abi\)|python3\.[0-9]+'; then
+            echo "::error::The package pins a Python version; it must run on any Fedora."
+            exit 1
+          fi
+
+      - name: Upload RPMs
         uses: actions/upload-artifact@v4
         with:
-          name: rgbeast-rpm-fedora-${{ matrix.release }}
-          path: ~/rpmbuild/RPMS/x86_64/rgbeast-*.rpm
+          name: rgbeast-rpms-fedora-${{ matrix.release }}
+          path: out/*.rpm
           if-no-files-found: error
 
-  # Every push to main publishes a DNF repository on GitHub Pages:
-  # https://djshiye.github.io/RGBeast/rgbeast.repo
-  repo:
-    name: Publish DNF repository
+  # Pushes to main: sign the Fedora 44 build and publish the repository.
+  publish:
+    name: Sign and assemble repository
     needs: fedora
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     container:
       image: fedora:44
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: rgbeast-rpms-fedora-44
+          path: new
+      - name: Sign packages and build the repository
+        env:
+          RPM_SIGNING_KEY: ${{ secrets.RPM_SIGNING_KEY }}
+        run: |
+          dnf install -y rpm-sign createrepo_c python3-rpm gnupg2
+          printf '%s\n' "$RPM_SIGNING_KEY" | gpg --batch --quiet --import
+          FPR=$(gpg --batch --with-colons --list-secret-keys | awk -F: '/^fpr/ {print $10; exit}')
+          gpg --batch --armor --export-options export-minimal --export "$FPR" > "$RUNNER_TEMP/key.asc"
+          rpmsign --define "_gpg_name $FPR" --addsign new/*.rpm
+          python3 build-aux/dnf-repo.py --app "$APP" --url "$SITE_URL" --title RGBeast \
+            --summary "RGB lighting control for GNOME" \
+            --icon data/icons/hicolor/scalable/apps/io.github.djshiye.RGBeast.svg \
+            --new new --site site --fetch \
+            --repo-file build-aux/rgbeast.repo --key "$RUNNER_TEMP/key.asc"
+          gpgconf --kill all
+          echo "### Signed with key \`$FPR\`" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: publish
+    runs-on: ubuntu-latest
     permissions:
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: rgbeast-rpm-fedora-44
-          path: site/fedora-44
-      - name: Build repository metadata
-        run: |
-          dnf install -y createrepo_c
-          createrepo_c site/fedora-44
-          cp build-aux/rgbeast.repo site/
-          printf '<!doctype html><title>RGBeast DNF repository</title><pre>sudo dnf config-manager addrepo --from-repofile=https://djshiye.github.io/RGBeast/rgbeast.repo\nsudo dnf install rgbeast</pre><p>Built from commit %s.</p>' "${GITHUB_SHA}" > site/index.html
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
       - id: deploy
         uses: actions/deploy-pages@v4
+
+  # A clean container adds the repository from its URL (or still has the old
+  # per-Fedora .repo file), installs with signature checks on, and runs it.
+  verify:
+    name: Install on Fedora ${{ matrix.fedora }} (${{ matrix.setup }} repo file)
+    needs: [fedora, deploy]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: [44, 45]
+        setup: [new, legacy]
+    container:
+      image: fedora:${{ matrix.fedora }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: build-aux/verify-install.sh
+          sparse-checkout-cone-mode: false
+      - name: Install from the published repository
+        run: |
+          sh build-aux/verify-install.sh "${{ matrix.setup }}" "$APP" "$SITE_URL" \
+            "${{ needs.fedora.outputs.evr }}" "$SITE_URL/fedora-\$releasever/"
+      - name: Smoke test
+        run: |
+          dnf install -y --setopt=install_weak_deps=False dbus-daemon systemd file
+          # Every library the binaries link against resolves on this release.
+          ! ldd /usr/libexec/rgbeastd | grep 'not found'
+          if file -b /usr/bin/rgbeast | grep -q ELF; then ! ldd /usr/bin/rgbeast | grep 'not found'; fi
+          # The daemon starts on a private bus with simulated devices and answers.
+          dbus-run-session -- sh -ec '
+            /usr/libexec/rgbeastd --session --simulate --state-dir "$(mktemp -d)" &
+            for i in $(seq 1 50); do
+              busctl --user status io.github.djshiye.RGBeast1 >/dev/null 2>&1 && break
+              sleep 0.2
+            done
+            busctl --user call io.github.djshiye.RGBeast1 /io/github/djshiye/RGBeast1 io.github.djshiye.RGBeast1.Manager ListDevices | grep -q sim:fury
+            kill %1'

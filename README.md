@@ -49,7 +49,7 @@ run write there. The daemon's D-Bus API only knows colours, modes, brightness, s
 
 ## Install (Fedora)
 
-Build the RPM (or download it from the CI artifacts) and install it:
+Add the repository once, then install. One signed package serves every current Fedora release:
 
 ```bash
 sudo dnf config-manager addrepo --from-repofile=https://djshiye.github.io/RGBeast/rgbeast.repo
@@ -72,16 +72,15 @@ a device is missing, use **Scan for Devices** (Ctrl+R) and check `docs/TESTING.m
 
 ## Upgrading with DNF
 
-Every push to `main` builds the RPM on CI and publishes it as a DNF repository on GitHub Pages.
-Add the repository once, then upgrade like any other package:
+Every push to `main` builds the RPM once on Fedora 44 (the oldest supported release; the same
+package runs on every newer one), signs it, and publishes it as a signed DNF repository on GitHub
+Pages with the last three builds. `sudo dnf upgrade` picks up new builds.
 
-```bash
-sudo dnf config-manager addrepo --from-repofile=https://djshiye.github.io/RGBeast/rgbeast.repo
-sudo dnf upgrade rgbeast
-```
-
-Each CI build carries a higher release number (`1.0.1-1.<commit count>`), so DNF always sees the
-newest build as an upgrade. The packages are unsigned (`gpgcheck=0`); Fedora 44 only.
+dnf asks once to trust the signing key (`https://djshiye.github.io/RGBeast/RPM-GPG-KEY-djshiye`).
+The package installs its own `/etc/yum.repos.d/rgbeast.repo` and the key, so the repository stays
+configured; if you added the old per-Fedora repository, the next upgrade replaces its file.
+Each CI build carries a higher release number (`1.1.0-1.<commit count>`), so DNF always sees the
+newest build as an upgrade.
 
 ## Build from source
 
@@ -113,14 +112,18 @@ Fury sticks and a TUF RX 9070.
 ### Build the RPM
 
 ```bash
-cargo vendor vendor && tar -cJf rgbeast-1.0.1-vendor.tar.xz vendor
-# source tarball named rgbeast-1.0.1.tar.gz with an rgbeast-1.0.1/ prefix
-rpmdev-setuptree && cp rgbeast-1.0.1*.tar.* ~/rpmbuild/SOURCES/
+cargo vendor vendor && tar -cJf rgbeast-1.1.0-vendor.tar.xz vendor
+# source tarball named rgbeast-1.1.0.tar.gz with an rgbeast-1.1.0/ prefix
+rpmdev-setuptree && cp rgbeast-1.1.0*.tar.* ~/rpmbuild/SOURCES/
 rpmbuild -ba build-aux/rgbeast.spec
 ```
 
 CI (`.github/workflows/ci.yml`) runs formatting, clippy, unit tests, a daemon smoke test on a
-private session bus, the Meson validation tests and an RPM build on Fedora 44 and Rawhide.
+private session bus, the Meson validation tests and an RPM build on Fedora 44 (Rawhide too on manual runs). Pushes to
+`main` then sign the RPMs (key in the `RPM_SIGNING_KEY` secret), publish the repository
+(`build-aux/dnf-repo.py`) and install it in clean Fedora 44 and 45 containers
+(`build-aux/verify-install.sh`). The spec also needs the public key as `RPM-GPG-KEY-djshiye` in
+`SOURCES`; CI exports it from the secret.
 
 ## Design
 

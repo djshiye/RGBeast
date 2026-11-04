@@ -2,7 +2,7 @@
 %global rgbeast_user rgbeast
 
 Name:           rgbeast
-Version:        1.0.1
+Version:        1.1.0
 # CI appends .<commit count> so every build from main is a newer release.
 Release:        1%{?release_suffix}%{?dist}
 Summary:        RGB lighting control for GNOME
@@ -12,6 +12,8 @@ URL:            https://github.com/djshiye/RGBeast
 Source0:        %{name}-%{version}.tar.gz
 # cargo vendor --locked, from the same tree
 Source1:        %{name}-%{version}-vendor.tar.xz
+# The public package signing key; CI exports it from the signing secret.
+Source2:        RPM-GPG-KEY-djshiye
 
 BuildRequires:  cargo-rpm-macros >= 24
 BuildRequires:  meson >= 1.0
@@ -52,6 +54,9 @@ export RUSTFLAGS="%{build_rustflags}"
 
 %install
 %meson_install
+# The DNF repository definition and its signing key, so the repository keeps itself configured.
+install -Dpm 0644 build-aux/%{name}.repo %{buildroot}%{_sysconfdir}/yum.repos.d/%{name}.repo
+install -Dpm 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/pki/rpm-gpg/RPM-GPG-KEY-djshiye-%{name}
 
 %check
 %meson_test
@@ -97,8 +102,18 @@ if [ $1 -gt 1 ]; then systemctl try-restart rgbeastd.service >/dev/null 2>&1 || 
 %{_udevrulesdir}/70-rgbeast.rules
 %{_sysusersdir}/rgbeast.conf
 %{_modulesloaddir}/rgbeast.conf
+# Plain %%config, not noreplace: an upgrade replaces an older hand-added copy
+# (saved as .rpmorig/.rpmsave), which is how users of the old per-Fedora
+# repository move to the signed one.
+%config %{_sysconfdir}/yum.repos.d/%{name}.repo
+%{_sysconfdir}/pki/rpm-gpg/RPM-GPG-KEY-djshiye-%{name}
 
 %changelog
+* Wed Nov 04 2026 Dino Klisura <115914552+djshiye@users.noreply.github.com> - 1.1.0-1
+- Signed packages and repository; one package for every Fedora release
+- The package installs its own repository file and signing key
+- Saturated palette, even Fury Breath, Fury sticks in step, Aura colour on first click
+
 * Tue Sep 29 2026 djshiye <dreamfantom16@gmail.com> - 1.0.1-1
 - Redesigned app chrome on libadwaita materials; daemon and discovery fixes
 

@@ -37,6 +37,11 @@
     <display_length compare="ge">360</display_length>
   </requires>
   <releases>
+    <release version="1.1.0" date="2026-11-04">
+      <description>
+        <p>Signed packages from one DNF repository that serves every current Fedora release and keeps itself configured. Saturated palette colours, even Fury Breath with a wider speed range, Fury sticks back in step, and Aura colours on the first click.</p>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-09-28">
       <description>
         <p>First release: ASUS Aura USB motherboards and addressable headers, Kingston Fury DDR5, ASUS ENE graphics cards.</p>

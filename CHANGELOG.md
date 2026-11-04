@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 (2026-11-04)
+
+Packaging
+- Packages and repository metadata are signed, and DNF checks both (`gpgcheck=1`,
+  `repo_gpgcheck=1`). The key is at `https://djshiye.github.io/RGBeast/RPM-GPG-KEY-djshiye`.
+- One package for every Fedora release: it is built once on Fedora 44, the oldest supported
+  release, and published at `https://djshiye.github.io/RGBeast/rpm/` without a Fedora version in
+  the path. The old `fedora-44/` address keeps working.
+- The package installs its own `/etc/yum.repos.d/rgbeast.repo` and the signing key, so the
+  repository stays configured.
+
+Lighting
 
 - Palette swatches and the All Devices default are fully saturated colours; the pastel
   GNOME palette came out washed-out and whitish on LEDs.

@@ -1,7 +1,9 @@
+# Installed and kept up to date by the rgbeast package.
 [rgbeast]
 name=RGBeast
-baseurl=https://djshiye.github.io/RGBeast/fedora-$releasever/
+baseurl=https://djshiye.github.io/RGBeast/rpm/
 enabled=1
-# The packages are built by GitHub Actions and are not signed.
-gpgcheck=0
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://djshiye.github.io/RGBeast/RPM-GPG-KEY-djshiye
 metadata_expire=1h
