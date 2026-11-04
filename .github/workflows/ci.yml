@@ -46,7 +46,7 @@ jobs:
       - name: Install build dependencies
         run: |
           dnf install -y rust cargo clippy rustfmt meson ninja-build gcc \
-            gtk4-devel libadwaita-devel systemd-devel blueprint-compiler \
+            systemd-devel python3-pyside6 qt6-qtsvg \
             desktop-file-utils appstream gettext rpm-build rpmdevtools rpmlint \
             cargo-rpm-macros systemd-rpm-macros python3 tar xz dbus-daemon gnupg2
 
@@ -103,6 +103,40 @@ jobs:
             done
             busctl --user call io.github.djshiye.RGBeast1 /io/github/djshiye/RGBeast1 io.github.djshiye.RGBeast1.Manager ListDevices | grep -q sim:fury
             kill %1'
+
+      # The app's model, backend and QtDBus client; the client against the simulator too.
+      - name: App unit tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+          RGBEASTD: ${{ github.workspace }}/target/debug/rgbeastd
+        run: |
+          export XDG_RUNTIME_DIR=$(mktemp -d)
+          dbus-run-session -- python3 -m unittest discover -s tests -t . -v
+
+      # Loads every QML file against the simulated devices; any QML warning fails the build.
+      - name: App self-test (offscreen, simulated devices)
+        env:
+          QT_QPA_PLATFORM: offscreen
+          XDG_CONFIG_HOME: ${{ runner.temp }}/config
+        run: |
+          export XDG_RUNTIME_DIR=$(mktemp -d)
+          dbus-run-session -- sh -ec '
+            ./target/debug/rgbeastd --session --simulate --state-dir "$RUNNER_TEMP/state-gui" &
+            daemon=$!
+            for i in $(seq 1 50); do
+              busctl --user status io.github.djshiye.RGBeast1 >/dev/null 2>&1 && break
+              sleep 0.2
+            done
+            for sheet in "" prefs about shortcuts menu toast; do
+              python3 -m rgbeast_gui --session --self-test --delay-ms 3000 ${sheet:+--sheet $sheet} 2>&1 | tee -a "$RUNNER_TEMP/gui.log"
+            done
+            python3 -m rgbeast_gui --session --self-test --device sim:fury --size 600x800 2>&1 | tee -a "$RUNNER_TEMP/gui.log"
+            kill "$daemon"'
+          if grep -E "^qml: |warning:" "$RUNNER_TEMP/gui.log"; then
+            echo "::error::The app printed QML warnings."
+            exit 1
+          fi
+          test "$(grep -c "self-test: status=ready devices=3 warnings=0" "$RUNNER_TEMP/gui.log")" -eq 7
 
       - name: Meson build and validation tests
         run: |

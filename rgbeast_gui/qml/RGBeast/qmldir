@@ -1,0 +1,29 @@
+module RGBeast
+singleton Theme 1.0 Theme.qml
+Icon 1.0 Icon.qml
+Shadow 1.0 Shadow.qml
+Glass 1.0 Glass.qml
+Card 1.0 Card.qml
+FocusRing 1.0 FocusRing.qml
+Tip 1.0 Tip.qml
+Button 1.0 Button.qml
+IconButton 1.0 IconButton.qml
+Pill 1.0 Pill.qml
+Segmented 1.0 Segmented.qml
+Switch 1.0 Switch.qml
+Slider 1.0 Slider.qml
+Swatch 1.0 Swatch.qml
+TextField 1.0 TextField.qml
+SpinBox 1.0 SpinBox.qml
+SettingRow 1.0 SettingRow.qml
+PopMenu 1.0 PopMenu.qml
+Sheet 1.0 Sheet.qml
+Toasts 1.0 Toasts.qml
+WindowButtons 1.0 WindowButtons.qml
+StatusPage 1.0 StatusPage.qml
+Sidebar 1.0 Sidebar.qml
+DevicePage 1.0 DevicePage.qml
+PreferencesSheet 1.0 PreferencesSheet.qml
+ShortcutsSheet 1.0 ShortcutsSheet.qml
+AboutSheet 1.0 AboutSheet.qml
+Scroller 1.0 Scroller.qml

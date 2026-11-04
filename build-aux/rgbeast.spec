@@ -1,5 +1,8 @@
 %global app_id io.github.djshiye.RGBeast
 %global rgbeast_user rgbeast
+# The app is Python run by /usr/bin/python3 from %%{_datadir}/rgbeast, never a
+# python3.X site-packages module, so the package must not pin a Python version.
+%global __requires_exclude ^python\\(abi\\)
 
 Name:           rgbeast
 Version:        1.1.0
@@ -18,19 +21,22 @@ Source2:        RPM-GPG-KEY-djshiye
 BuildRequires:  cargo-rpm-macros >= 24
 BuildRequires:  meson >= 1.0
 BuildRequires:  gcc
-BuildRequires:  pkgconfig(gtk4) >= 4.14
-BuildRequires:  pkgconfig(libadwaita-1) >= 1.5
-BuildRequires:  pkgconfig(gio-2.0)
 BuildRequires:  pkgconfig(libudev)
-BuildRequires:  blueprint-compiler
+BuildRequires:  python3
+# %%check runs the app's unit tests, the Qt ones offscreen.
+BuildRequires:  python3-pyside6
 BuildRequires:  desktop-file-utils
 BuildRequires:  appstream
 BuildRequires:  gettext
 BuildRequires:  systemd-rpm-macros
 
-Requires:       gtk4%{?_isa} >= 4.14
-Requires:       libadwaita%{?_isa} >= 1.5
+Requires:       python3
+Requires:       python3-pyside6
+# SVG icons in the window and the About sheet
+Requires:       qt6-qtsvg%{?_isa}
 Requires:       hicolor-icon-theme
+Recommends:     adwaita-sans-fonts
+Recommends:     adwaita-mono-fonts
 Requires:       polkit
 Requires:       dbus-common
 # udev rule sets the device nodes' group ACL entry with setfacl
@@ -40,7 +46,7 @@ Requires:       acl
 RGBeast controls the RGB lighting of ASUS Aura motherboards and the addressable
 fans on their headers, Kingston Fury DDR5 memory and ASUS graphics cards. A
 small sandboxed system daemon (rgbeastd) is the only process that touches the
-hardware; the GTK 4 app talks to it over D-Bus, guarded by polkit.
+hardware; the Qt Quick app talks to it over D-Bus, guarded by polkit.
 
 %prep
 %autosetup -n %{name}-%{version} -a1
@@ -90,8 +96,8 @@ if [ $1 -gt 1 ]; then systemctl try-restart rgbeastd.service >/dev/null 2>&1 || 
 %{_libexecdir}/rgbeastd
 %{_mandir}/man1/%{name}.1*
 %{_mandir}/man8/rgbeastd.8*
+%{_datadir}/%{name}/
 %{_datadir}/applications/%{app_id}.desktop
-%{_datadir}/glib-2.0/schemas/%{app_id}.gschema.xml
 %{_datadir}/icons/hicolor/scalable/apps/%{app_id}.svg
 %{_datadir}/icons/hicolor/symbolic/apps/%{app_id}-symbolic.svg
 %{_datadir}/metainfo/%{app_id}.metainfo.xml
@@ -113,6 +119,7 @@ if [ $1 -gt 1 ]; then systemctl try-restart rgbeastd.service >/dev/null 2>&1 || 
 - Signed packages and repository; one package for every Fedora release
 - The package installs its own repository file and signing key
 - Saturated palette, even Fury Breath, Fury sticks in step, Aura colour on first click
+- The app is now Qt Quick instead of GTK: same features, audius-style look, light and dark
 
 * Tue Sep 29 2026 djshiye <dreamfantom16@gmail.com> - 1.0.1-1
 - Redesigned app chrome on libadwaita materials; daemon and discovery fixes

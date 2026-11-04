@@ -2,20 +2,23 @@
 
 **An RGB controller app I built for myself for Fedora Linux.**
 
-Written from scratch in Rust with GTK 4 and libadwaita, designed to Apple's Human Interface
-Guidelines (`docs/DESIGN.md`), delivered as an RPM.
+A Rust daemon and core with a Qt Quick app (PySide6 + QML) in the audius style (`docs/DESIGN.md`),
+delivered as an RPM.
 
 RGBeast drives the lighting of an ASUS Aura motherboard (and the addressable fans plugged into its
-headers), Kingston Fury DDR5 memory and ASUS graphics cards from one window that follows the GNOME
-style and Apple's Human Interface Guidelines in spirit: navigation on the platform's sidebar
-material, content on cards, neutral chrome, and the only saturated colour on screen is the light
-you chose.
+headers), Kingston Fury DDR5 memory and ASUS graphics cards from one window that follows GNOME's
+light or dark style and accent colour: a sidebar for navigation, content on cards, neutral chrome,
+and the only saturated colour on screen is the light you chose.
 
 ![RGBeast, All Devices](docs/screenshots/all-devices.png)
 
-| Motherboard, dark style | Kingston Fury, light style | Narrow window |
-|---|---|---|
-| ![](docs/screenshots/dark-direct.png) | ![](docs/screenshots/fury.png) | ![](docs/screenshots/narrow.png) |
+| Motherboard, dark style | Kingston Fury, light style |
+|---|---|
+| ![](docs/screenshots/dark-direct.png) | ![](docs/screenshots/fury.png) |
+
+| Preferences, light style | Narrow window |
+|---|---|
+| ![](docs/screenshots/preferences.png) | ![](docs/screenshots/narrow.png) |
 
 ## What it controls
 
@@ -33,7 +36,7 @@ The **All Devices** page sets everything at once, choosing the closest effect ea
 
 ## How it is built
 
-Three Rust crates, one Meson project, one RPM:
+Two Rust crates and a Python app, one Meson project, one RPM:
 
 - `crates/rgbeast-core`: the protocols (`docs/PROTOCOLS.md`), a device model, and transports for hidraw
   and `/dev/i2c-*`. Every packet is covered by unit tests against a recording mock transport.
@@ -41,7 +44,8 @@ Three Rust crates, one Meson project, one RPM:
   as the unprivileged user `rgbeast` under a strict systemd sandbox (no capabilities, no network,
   read-only system, seccomp, device allow-list), publishes `io.github.djshiye.RGBeast1` on the system
   bus, checks every change with polkit, and restores the last lighting at boot and after sleep.
-- `crates/rgbeast`: the GTK 4 / libadwaita app. It never touches hardware.
+- `rgbeast_gui/`: the Qt Quick app (PySide6 + QML), installed to `/usr/share/rgbeast` and started by
+  `/usr/bin/rgbeast`. It talks to the daemon over D-Bus with QtDBus and never touches hardware.
 
 Why a daemon: RGB control means raw writes on the same SMBus as the memory's SPD EEPROMs and on the
 GPU's own I2C bus. Giving the desktop session direct access to `/dev/i2c-*` would let any process you
@@ -85,8 +89,8 @@ newest build as an upgrade.
 ## Build from source
 
 ```bash
-sudo dnf install rust cargo meson gtk4-devel libadwaita-devel systemd-devel \
-     blueprint-compiler desktop-file-utils appstream gettext
+sudo dnf install rust cargo meson systemd-devel python3-pyside6 qt6-qtsvg \
+     desktop-file-utils appstream gettext
 meson setup builddir --prefix=/usr
 meson compile -C builddir
 sudo meson install -C builddir
@@ -104,8 +108,9 @@ sudo busctl call org.freedesktop.DBus / org.freedesktop.DBus ReloadConfig
 sudo systemctl daemon-reload && sudo systemctl enable --now rgbeastd
 ```
 
-For development without installing: `cargo build`, then in one terminal
-`./target/debug/rgbeastd --session --simulate` and in another `RGBEAST_BUS=session ./target/debug/rgbeast`.
+For development without installing: `cargo build -p rgbeastd`, then in one terminal
+`./target/debug/rgbeastd --session --simulate` and in another `python3 -m rgbeast_gui --session`
+(or `RGBEAST_BUS=session`). The app's tests: `python3 -m unittest discover -s tests -t .`.
 The simulated devices are the target machine's: a TUF board with three addressable headers, two
 Fury sticks and a TUF RX 9070.
 
@@ -119,7 +124,8 @@ rpmbuild -ba build-aux/rgbeast.spec
 ```
 
 CI (`.github/workflows/ci.yml`) runs formatting, clippy, unit tests, a daemon smoke test on a
-private session bus, the Meson validation tests and an RPM build on Fedora 44 (Rawhide too on manual runs). Pushes to
+private session bus, the app's unit tests and an offscreen self-test against the simulated daemon
+(any QML warning fails the build), the Meson validation tests and an RPM build on Fedora 44 (Rawhide too on manual runs). Pushes to
 `main` then sign the RPMs (key in the `RPM_SIGNING_KEY` secret), publish the repository
 (`build-aux/dnf-repo.py`) and install it in clean Fedora 44 and 45 containers
 (`build-aux/verify-install.sh`). The spec also needs the public key as `RPM-GPG-KEY-djshiye` in
@@ -127,10 +133,9 @@ private session bus, the Meson validation tests and an RPM build on Fedora 44 (R
 
 ## Design
 
-The principles and how each one shows up in the app are in `docs/DESIGN.md`. In short: the sidebar
-is the platform's navigation material and the editor's sections are libadwaita cards, every colour
-is a `var(--…)` token so light, dark, high contrast, the system accent and user themes carry
-through; pill chips for effects, a segmented control for direction, a colour wheel that is drawn
+The tokens and how they show up in the app are in `docs/DESIGN.md`. In short: audius's surfaces,
+radii, type scale and motion, light and dark following GNOME, the system accent for selection and
+focus, glass popovers and toasts, layered card shadows; pill chips for effects, a segmented control for direction, a colour wheel that is drawn
 (not a stock dialog), a preview card that is the one dark surface even in light mode because lights
 are read against dark, and effect animation in the preview only (30 fps cap, off with reduced
 motion). Every control applies immediately and the header shows a quiet "Applied".
@@ -145,3 +150,4 @@ brightness (up/down), Shift for bigger steps.
 
 - `/var/lib/rgbeast/state.json`: last state per device, header LED counts (daemon).
 - `~/.config/rgbeast/scenes.json`: your scenes.
+- `~/.config/rgbeast/settings.json`: window size, last device, preview animation (app).

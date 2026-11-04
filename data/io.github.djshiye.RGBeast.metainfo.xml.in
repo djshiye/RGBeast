@@ -6,7 +6,7 @@
   <name>RGBeast</name>
   <summary>Control the RGB lighting of your PC</summary>
   <description>
-    <p>RGBeast controls the lighting of ASUS Aura motherboards and the addressable fans plugged into them, Kingston Fury DDR5 memory and ASUS graphics cards, from one window that follows the GNOME style.</p>
+    <p>RGBeast controls the lighting of ASUS Aura motherboards and the addressable fans plugged into them, Kingston Fury DDR5 memory and ASUS graphics cards, from one window that follows GNOME's light or dark style and accent colour.</p>
     <ul>
       <li>Live preview of every LED, colour wheel, brightness, hardware effects with speed and direction</li>
       <li>One click to light everything the same colour, or scenes that set every device at once</li>
@@ -34,12 +34,13 @@
     <control>pointing</control>
   </supports>
   <requires>
-    <display_length compare="ge">360</display_length>
+    <display_length compare="ge">560</display_length>
   </requires>
   <releases>
     <release version="1.1.0" date="2026-11-04">
       <description>
         <p>Signed packages from one DNF repository that serves every current Fedora release and keeps itself configured. Saturated palette colours, even Fury Breath with a wider speed range, Fury sticks back in step, and Aura colours on the first click.</p>
+        <p>A new Qt Quick app with the same features: dark and light styles that follow GNOME and its accent colour, glass menus, and a window that works down to 560 pixels wide.</p>
       </description>
     </release>
     <release version="1.0.0" date="2026-09-28">

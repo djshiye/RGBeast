@@ -1,5 +1,8 @@
 # RGBeast: RGB lighting control for Fedora
 
+> **Note (1.1.0):** this is the original 1.0 plan. The GTK 4 / libadwaita app it describes was
+> replaced by a Qt Quick app (`rgbeast_gui/`, see `DESIGN.md`); the daemon and core are unchanged.
+
 Plan written 2026-09-28. Target: Fedora 44 Workstation, GNOME on Wayland, delivered as an RPM.
 Stack: Rust, GTK 4, libadwaita, Blueprint, Meson wrapping Cargo, RPM spec, CI on Fedora
 containers. Design: Apple's Human Interface Guidelines applied through Adwaita (`DESIGN.md`).

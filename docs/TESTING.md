@@ -102,19 +102,25 @@ GPU-rendered application took ten seconds to open until a reboot. Discovery clas
 as `Other` and never opens them; `bus_role` has a test for it. Only the `AMDGPU DM i2c OEM bus`
 carries a lighting controller.
 
-## 7. Screenshots and layout checks (debug builds)
+## 7. Screenshots and layout checks
 
-`rgbeast` in a debug build honours three environment variables: `RGBEAST_DEBUG_SIZE=WxH`,
-`RGBEAST_DEBUG_DEVICE=<id>` and `RGBEAST_DEBUG_SHOT=<file.png>` (render the window after loading,
-then quit). GNOME's compositor restores a window's last size, so for exact sizes run a headless
-mutter and point the app at it:
+The app has a development harness (`python3 -m rgbeast_gui --help`, "development" options). Run it
+against the simulated daemon on a private session bus:
 
 ```bash
-mutter --headless --wayland --no-x11 --virtual-monitor 1600x1100 --wayland-display shots &
-./target/debug/rgbeastd --session --simulate &
-WAYLAND_DISPLAY=shots RGBEAST_BUS=session RGBEAST_DEBUG_SIZE=980x720 \
-  RGBEAST_DEBUG_DEVICE=sim:fury RGBEAST_DEBUG_SHOT=fury.png ./target/debug/rgbeast
+cargo build -p rgbeastd
+dbus-run-session -- sh -c '
+  ./target/debug/rgbeastd --session --simulate --state-dir "$(mktemp -d)" &
+  sleep 1
+  python3 -m rgbeast_gui --session --theme light --size 1148x828 --device sim:fury --screenshot fury.png'
 ```
 
-`XDG_CONFIG_HOME=$(mktemp -d)` bypasses a user GTK theme; `ADW_DEBUG_COLOR_SCHEME=prefer-light`
-and `ADW_DEBUG_HIGH_CONTRAST=1` cover the other styles.
+- `--screenshot FILE.png` renders the window after loading and quits; `--self-test` loads it and
+  exits non-zero on any QML warning (CI runs it with every sheet open).
+- `--theme dark|light`, `--size WxH` (including the 14 px shadow margin), `--device ID|all` and
+  `--sheet prefs|about|shortcuts|menu|toast` pick what is shown.
+- `QT_QPA_PLATFORM=offscreen` needs no display but has no blur; under Xvfb with
+  `QT_QPA_PLATFORM=xcb` the glass blurs as on the desktop. `QT_SCALE_FACTOR=2` gives 2x images.
+- `XDG_CONFIG_HOME=$(mktemp -d)` keeps your own scenes and settings out of the picture.
+- The app's unit tests: `python3 -m unittest discover -s tests -t .`; the simulator tests run when you
+  set `RGBEASTD=$PWD/target/debug/rgbeastd` inside `dbus-run-session` to run them.

@@ -14,20 +14,18 @@ bindir = prefix / get_option('bindir')
 libexecdir = prefix / get_option('libexecdir')
 datadir = prefix / get_option('datadir')
 
-dependency('gtk4', version: '>= 4.14')
-dependency('libadwaita-1', version: '>= 1.5')
+pkgdatadir = datadir / 'rgbeast'
+
+# rgbeastd is Rust; the app is Python + Qt Quick (PySide6) and needs no build step.
 dependency('libudev')
-find_program('blueprint-compiler')
-find_program('glib-compile-resources')
-find_program('glib-compile-schemas')
 cargo = find_program('cargo')
+python = find_program('python3')
 
 subdir('data')
 subdir('po')
 subdir('src')
 
 gnome.post_install(
-  glib_compile_schemas: true,
   gtk_update_icon_cache: true,
   update_desktop_database: true,
 )

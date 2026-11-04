@@ -1,0 +1,10 @@
+#!/usr/bin/python3 -sP
+# RGBeast: launches the Qt Quick app installed in @pkgdatadir@.
+import sys
+
+sys.path.insert(0, "@pkgdatadir@")
+sys.dont_write_bytecode = True
+
+from rgbeast_gui.app import main  # noqa: E402
+
+sys.exit(main())

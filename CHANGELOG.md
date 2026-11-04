@@ -11,6 +11,17 @@ Packaging
 - The package installs its own `/etc/yum.repos.d/rgbeast.repo` and the signing key, so the
   repository stays configured.
 
+App
+- The GTK 4 / libadwaita app is replaced by a Qt Quick app (PySide6 + QML) in the audius style:
+  dark and light following GNOME and its accent colour, glass popovers and toasts, layered card
+  shadows, an integrated header with the desktop's window buttons, down to 560 px wide.
+- Every feature is kept: All Devices, scenes, the animated preview with per-LED painting, effects,
+  colour wheel, palette and hex entry, multi-colour slots, brightness, speed, direction, random,
+  header LED counts, Store as Power-On Lighting, Preferences, and the keyboard shortcuts.
+- Preferences that were GSettings keys (window size, last device, animate preview) are now in
+  `~/.config/rgbeast/settings.json`; scenes keep their file and format.
+- The package no longer needs GTK 4, libadwaita or Blueprint; it needs `python3-pyside6`.
+
 Lighting
 
 - Palette swatches and the All Devices default are fully saturated colours; the pastel
