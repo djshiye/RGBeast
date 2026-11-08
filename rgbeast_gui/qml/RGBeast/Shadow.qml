@@ -9,6 +9,9 @@ Item {
     property real spread: Theme.dark ? 30 : 26        // ~ the CSS blur radius
     property real strength: Theme.dark ? 0.28 : 0.07
     readonly property int steps: 9
+    // Outer layers lighter than inner ones, so the shadow fades out instead of ending in a faint
+    // edge (the window shadow, which has to fit in the window's 14 px margin).
+    property bool fade: false
 
     // The tight contact shadow (0 1px 2px).
     Rectangle {
@@ -30,7 +33,7 @@ Item {
             height: s.height + grow * 2
             radius: s.radius + grow
             color: "black"
-            opacity: s.strength / s.steps * 1.25
+            opacity: s.strength / s.steps * 1.25 * (s.fade ? 2 * (s.steps - index) / (s.steps + 1) : 1)
         }
     }
 }

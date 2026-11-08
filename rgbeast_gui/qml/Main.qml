@@ -61,9 +61,12 @@ Window {
         visible: !win.maximized
         anchors.fill: frame
         radius: win.cornerRadius
-        offsetY: 4
-        spread: 24
-        strength: Theme.dark ? 0.5 : 0.18
+        // All of it inside the window's margin (spread / 2 + offsetY <= margin): a shadow cut off
+        // at the window's edge shows as a hard line over a bright background.
+        offsetY: 3
+        spread: 20
+        fade: true
+        strength: Theme.dark ? 0.4 : 0.16
     }
 
     // ------------------------------------------------------------------ frame
