@@ -68,6 +68,15 @@ Item {
         radius: g.radius
         color: Theme.glassFill
         border.width: 1
-        border.color: Theme.dark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.06)
+        border.color: Theme.hairlineStrong
+    }
+    Rectangle {     // the lit rim
+        x: g.radius; width: g.width - 2 * g.radius; height: 1
+        gradient: Gradient {
+            orientation: Gradient.Horizontal
+            GradientStop { position: 0; color: "transparent" }
+            GradientStop { position: 0.5; color: Theme.rim }
+            GradientStop { position: 1; color: "transparent" }
+        }
     }
 }

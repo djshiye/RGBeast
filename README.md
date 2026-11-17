@@ -2,14 +2,14 @@
 
 **An RGB controller app I built for myself for Fedora Linux.**
 
-A Rust daemon and core with a Qt Quick app (PySide6 + QML) in the audius style (`docs/DESIGN.md`),
+A Rust daemon and core with a Qt Quick app (PySide6 + QML) in the Spectral style (`docs/DESIGN.md`),
 delivered as an RPM.
 
 RGBeast drives the lighting of an ASUS Aura motherboard (and the addressable fans plugged into its
 headers), Kingston Fury DDR5 memory, ASUS and Sapphire graphics cards and the Glorious GMMK Pro
 keyboard from one window that follows GNOME's
-light or dark style and accent colour: a sidebar for navigation, content on cards, neutral chrome,
-and the only saturated colour on screen is the light you chose.
+light or dark style and accent colour: a sidebar for navigation, content on glass cards, neutral
+chrome, and the window glows with the colours your lights are showing.
 
 ![RGBeast, All Devices](docs/screenshots/all-devices.png)
 
@@ -137,11 +137,12 @@ private session bus, the app's unit tests and an offscreen self-test against the
 
 ## Design
 
-The tokens and how they show up in the app are in `docs/DESIGN.md`. In short: audius's surfaces,
-radii, type scale and motion, light and dark following GNOME, the system accent for selection and
-focus, glass popovers and toasts, layered card shadows; pill chips for effects, a segmented control for direction, a colour wheel that is drawn
-(not a stock dialog), a preview card that is the one dark surface even in light mode because lights
-are read against dark, and effect animation in the preview only (30 fps cap, off with reduced
+The tokens and how they show up in the app are in `docs/DESIGN.md`. In short: a deep canvas (a cool
+frost in light mode) lit by an ambient wash of the colours your devices show, glass cards with a lit
+top rim, the system accent as a short glowing gradient for selection, focus and values, eyebrow
+headings and monospaced readouts; pill chips for effects, a segmented control for direction, a colour
+wheel that is drawn (not a stock dialog), a preview stage that stays dark even in light mode because
+lights are read against dark, and effect animation in the preview only (30 fps cap, off with reduced
 motion). Every control applies immediately and the header shows a quiet "Applied".
 
 ## Keyboard

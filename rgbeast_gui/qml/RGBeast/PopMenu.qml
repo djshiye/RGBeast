@@ -16,7 +16,7 @@ T.Popup {
     implicitHeight: col.implicitHeight + 12
     transformOrigin: T.Popup.Top
 
-    background: Glass { radius: 14 }
+    background: Glass { radius: 16 }
     enter: Transition {
         ParallelAnimation {
             NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.fast }
@@ -64,8 +64,15 @@ T.Popup {
                     Rectangle {
                         visible: !it.sep
                         anchors.fill: parent
-                        radius: 8
-                        color: it.hot ? (it.modelData.danger ? Theme.danger : Theme.accent) : "transparent"
+                        radius: 9
+                        color: it.hot && it.modelData.danger ? Theme.danger : "transparent"
+                        gradient: it.hot && !it.modelData.danger ? hotGradient : null
+                        Gradient {
+                            id: hotGradient
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0; color: Theme.accent }
+                            GradientStop { position: 1; color: Theme.accent2 }
+                        }
                     }
                 }
                 contentItem: Item {
@@ -93,6 +100,7 @@ T.Popup {
                             visible: !!it.modelData.shortcut
                             text: it.modelData.shortcut || ""
                             font.pixelSize: Theme.fsCaption
+                            font.family: Theme.mono
                             color: it.hot ? Theme.alpha(Theme.inkOnAccent, 0.75) : Theme.text3
                         }
                     }

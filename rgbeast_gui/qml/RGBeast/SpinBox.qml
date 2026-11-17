@@ -6,10 +6,11 @@ T.SpinBox {
     id: sb
     editable: true
     implicitWidth: 118
-    implicitHeight: 30
+    implicitHeight: 32
     leftPadding: 30
     rightPadding: 30
     font.pixelSize: Theme.fsBody
+    font.family: Theme.mono
     Accessible.role: Accessible.SpinBox
     wheelEnabled: true
     validator: IntValidator { bottom: Math.min(sb.from, sb.to); top: Math.max(sb.from, sb.to) }
@@ -27,8 +28,8 @@ T.SpinBox {
         selectionColor: Theme.alpha(Theme.accent, 0.45)
     }
     background: Rectangle {
-        radius: 8
-        color: Theme.fill
+        radius: 10
+        color: Theme.sunken
         border.width: 1
         border.color: sb.activeFocus ? Theme.accent : Theme.hairline
     }

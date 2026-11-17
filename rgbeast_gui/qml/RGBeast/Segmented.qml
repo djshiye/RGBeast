@@ -17,7 +17,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: seg.small ? 10 : 12
-        color: Theme.fill
+        color: Theme.sunken
         border.width: 1
         border.color: Theme.hairline
     }
@@ -30,9 +30,17 @@ Item {
         x: target ? target.x + 3 : 3
         width: target ? target.width : 0
         radius: seg.small ? 7 : 9
-        color: Theme.dark ? Theme.fill3 : "#ffffff"
-        border.width: Theme.dark ? 0 : 0.5
-        border.color: Qt.rgba(0, 0, 0, 0.05)
+        color: Theme.dark ? Theme.surface3 : "#ffffff"
+        border.width: 1
+        border.color: Theme.alpha(Theme.accent, Theme.dark ? 0.55 : 0.4)
+        // The accent underline: which side is lit.
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 3
+            width: Math.min(18, parent.width - 16); height: 2; radius: 1
+            color: Theme.accent
+        }
         Behavior on x { NumberAnimation { duration: Theme.med; easing.type: Easing.Bezier; easing.bezierCurve: Theme.easeOut } }
         Behavior on width { NumberAnimation { duration: Theme.med; easing.type: Easing.Bezier; easing.bezierCurve: Theme.easeOut } }
         Rectangle {     // drop shadow under the thumb

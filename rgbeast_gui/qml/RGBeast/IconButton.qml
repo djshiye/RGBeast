@@ -16,7 +16,7 @@ T.AbstractButton {
     Accessible.role: Accessible.Button
     Accessible.name: tip !== "" ? tip : glyph
     background: Rectangle {
-        radius: b.size >= 32 ? 9 : 8
+        radius: b.size >= 32 ? 10 : 8
         color: b.down ? Theme.fill2 : (b.hovered || b.checked) ? Theme.fill : "transparent"
         Behavior on color { ColorAnimation { duration: Theme.fast } }
         FocusRing { shown: b.visualFocus; targetRadius: parent.radius }

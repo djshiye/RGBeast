@@ -2,6 +2,9 @@ module RGBeast
 singleton Theme 1.0 Theme.qml
 Icon 1.0 Icon.qml
 Shadow 1.0 Shadow.qml
+Glow 1.0 Glow.qml
+Aurora 1.0 Aurora.qml
+Eyebrow 1.0 Eyebrow.qml
 Glass 1.0 Glass.qml
 Card 1.0 Card.qml
 FocusRing 1.0 FocusRing.qml

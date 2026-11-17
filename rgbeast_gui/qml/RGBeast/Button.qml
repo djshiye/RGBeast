@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Templates as T
 
-// .btn: 32 px, radius 9, 600 weight. Variants: accent, plain, danger, small; icon-only when text is empty.
+// .btn: 32 px, radius 10, 600 weight; the accent variant is a glowing gradient. Variants: accent, plain, danger, small; icon-only when text is empty.
 T.AbstractButton {
     id: b
     property string glyph: ""
@@ -11,7 +11,7 @@ T.AbstractButton {
     property bool small: false
     readonly property bool iconOnly: text === "" && glyph !== ""
 
-    implicitHeight: small ? 26 : 32
+    implicitHeight: small ? 28 : 34
     implicitWidth: iconOnly ? implicitHeight : row.implicitWidth + (small ? 20 : 26)
     focusPolicy: Qt.StrongFocus
     hoverEnabled: true
@@ -19,14 +19,43 @@ T.AbstractButton {
     property string tip: ""
     Accessible.name: text !== "" ? text : (tip !== "" ? tip : glyph)
 
-    background: Rectangle {
-        radius: b.small ? 8 : 9
-        color: !b.enabled ? Theme.fill
-             : b.accent ? (b.hovered ? Theme.mix(Theme.accent, "#ffffff", 0.88) : Theme.accent)
-             : b.plain ? (b.down ? Theme.fill2 : b.hovered ? Theme.fill : "transparent")
-             : (b.down ? Theme.fill3 : b.hovered ? Theme.fill2 : Theme.fill)
-        Behavior on color { ColorAnimation { duration: Theme.fast } }
-        FocusRing { shown: b.visualFocus; targetRadius: parent.radius }
+    background: Item {
+        // The primary button glows in its own colour.
+        Glow {
+            anchors.fill: parent
+            radius: b.small ? 8 : 10
+            on: b.accent && b.enabled
+            color: Theme.accent
+            spread: b.hovered ? 22 : 16
+            strength: Theme.dark ? (b.hovered ? 0.6 : 0.45) : (b.hovered ? 0.4 : 0.3)
+        }
+        Rectangle {
+            anchors.fill: parent
+            radius: b.small ? 8 : 10
+            visible: !b.accent || !b.enabled
+            color: !b.enabled ? Theme.fill
+                 : b.plain ? (b.down ? Theme.fill2 : b.hovered ? Theme.fill : "transparent")
+                 : (b.down ? Theme.fill3 : b.hovered ? Theme.fill2 : Theme.fill)
+            border.width: b.plain ? 0 : 1
+            border.color: b.danger && b.hovered ? Theme.alpha(Theme.danger, 0.5) : b.hovered ? Theme.hairlineStrong : Theme.hairline
+            Behavior on color { ColorAnimation { duration: Theme.fast } }
+        }
+        Rectangle {
+            anchors.fill: parent
+            radius: b.small ? 8 : 10
+            visible: b.accent && b.enabled
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0; color: b.hovered ? Theme.mix(Theme.accent, "#ffffff", 0.88) : Theme.accent }
+                GradientStop { position: 1; color: b.hovered ? Theme.mix(Theme.accent2, "#ffffff", 0.88) : Theme.accent2 }
+            }
+            // The lit top edge.
+            Rectangle {
+                x: parent.radius; width: parent.width - 2 * parent.radius; height: 1
+                color: Qt.rgba(1, 1, 1, 0.35)
+            }
+        }
+        FocusRing { shown: b.visualFocus; targetRadius: b.small ? 8 : 10 }
     }
     contentItem: Item {
         Row {

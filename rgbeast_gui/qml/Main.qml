@@ -25,6 +25,8 @@ Window {
     Binding { target: Theme; property: "reduceMotion"; value: appearance.reduceMotion }
     Binding { target: Theme; property: "glass"; value: liquidGlass }
     Binding { target: Theme; property: "backdrop"; value: backdrop }
+    Binding { target: Theme; property: "windowMargin"; value: win.margin }
+    Binding { target: Theme; property: "windowRadius"; value: win.cornerRadius }
 
     Shortcut { sequences: [StandardKey.Quit, "Ctrl+Q"]; onActivated: Qt.quit() }
     Shortcut { sequences: ["Ctrl+W"]; onActivated: win.close() }
@@ -50,6 +52,23 @@ Window {
         else if (demo === "toast") toasts.show("Scene “Movie Night” applied")
     }
 
+    // Up to three distinct, visible colours from the page's preview: the ambient light's palette.
+    readonly property var ambient: {
+        const seen = {}
+        const all = []
+        for (const z of (lighting.preview || []))
+            for (const h of (z.colors || [])) {
+                const c = Qt.color(h)
+                if (Math.max(c.r, c.g, c.b) < 0.16 || seen[h])
+                    continue
+                seen[h] = true
+                all.push(h)
+            }
+        if (all.length <= 3)
+            return all
+        return [all[0], all[Math.floor(all.length / 2)], all[all.length - 1]]
+    }
+
     function chooseDevice(id) {
         lighting.selectDevice(id)
         showContent = true
@@ -66,7 +85,7 @@ Window {
         offsetY: 3
         spread: 20
         fade: true
-        strength: Theme.dark ? 0.4 : 0.16
+        strength: Theme.dark ? 0.5 : 0.18
     }
 
     // ------------------------------------------------------------------ frame
@@ -77,37 +96,43 @@ Window {
         radius: win.cornerRadius
         color: Theme.bg
         border.width: win.maximized ? 0 : 1
-        border.color: Theme.dark ? Qt.rgba(1, 1, 1, 0.09) : Qt.rgba(0, 0, 0, 0.12)
+        border.color: Theme.dark ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(15 / 255, 18 / 255, 40 / 255, 0.14)
         Behavior on color { ColorAnimation { duration: Theme.med } }
 
         Item {
             id: backdrop      // what glass blurs
             anchors.fill: parent
 
-            // radial-gradient(1100px 520px at 50% -180px, accent 9%, transparent 70%)
-            Canvas {
-                id: glow
-                width: parent.width
-                height: 380
-                property color c: Theme.alpha(Theme.accent, Theme.dark ? 0.09 : 0.07)
-                onCChanged: requestPaint()
-                onWidthChanged: requestPaint()
-                onPaint: {
-                    const ctx = getContext("2d")
-                    ctx.reset()
-                    ctx.save()
-                    ctx.translate(width / 2, -180)
-                    ctx.scale(1100 / 520, 1)
-                    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 520)
-                    g.addColorStop(0, Qt.rgba(c.r, c.g, c.b, c.a))
-                    g.addColorStop(0.7, Qt.rgba(c.r, c.g, c.b, 0))
-                    ctx.fillStyle = g
-                    ctx.fillRect(-width, 0, width * 2, height + 180)
-                    ctx.restore()
+            // The ambient light: the colours the current page shows, washed across the window.
+            Aurora {
+                anchors.fill: parent
+                colors: win.ambient
+                cornerRadius: win.cornerRadius
+                running: win.active
+            }
+            // A faint top-down sheen so the canvas reads as depth, not flat paint.
+            Rectangle {
+                anchors.fill: parent
+                radius: win.cornerRadius
+                gradient: Gradient {
+                    GradientStop { position: 0; color: Theme.dark ? Qt.rgba(1, 1, 1, 0.025) : Qt.rgba(1, 1, 1, 0.35) }
+                    GradientStop { position: 0.5; color: "transparent" }
                 }
             }
 
             // ---------------------------------------------------------- sidebar
+            Item {          // the sidebar's glass panel: rounded on the window's side only
+                visible: sidebar.visible
+                width: sidebar.width
+                height: frame.height
+                clip: true
+                Rectangle {
+                    width: parent.width + (win.collapsed ? 0 : win.cornerRadius)
+                    height: parent.height
+                    radius: win.cornerRadius
+                    color: Theme.sidebar
+                }
+            }
             Sidebar {
                 id: sidebar
                 visible: !win.collapsed || !win.showContent
@@ -137,7 +162,12 @@ Window {
                 x: sidebar.width
                 width: 1
                 height: frame.height
-                color: Theme.hairline
+                gradient: Gradient {
+                    GradientStop { position: 0; color: "transparent" }
+                    GradientStop { position: 0.12; color: Theme.hairline }
+                    GradientStop { position: 0.88; color: Theme.hairline }
+                    GradientStop { position: 1; color: "transparent" }
+                }
             }
 
             // ---------------------------------------------------------- content
