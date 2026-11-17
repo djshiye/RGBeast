@@ -7,17 +7,30 @@ Sheet {
     ColumnLayout {
         Layout.fillWidth: true
         spacing: 6
-        Image {
+        Item {
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: 96
             Layout.preferredHeight: 96
+            Glow { anchors.fill: parent; anchors.margins: 10; radius: 24; spread: 50; strength: Theme.dark ? 0.45 : 0.25 }
+        Image {
+            anchors.fill: parent
             source: iconUrl
             sourceSize: Qt.size(192, 192)
             smooth: true
             mipmap: true
         }
-        Text { Layout.alignment: Qt.AlignHCenter; text: "RGBeast"; color: Theme.text; font.pixelSize: 22; font.weight: Font.Bold }
-        Text { Layout.alignment: Qt.AlignHCenter; text: "Version " + appVersion; color: Theme.text2; font.pixelSize: Theme.fsBody }
+        }
+        Text { Layout.alignment: Qt.AlignHCenter; Layout.topMargin: 6; text: "RGBeast"; color: Theme.text; font.pixelSize: 24; font.weight: Font.Bold; font.letterSpacing: -0.5 }
+        Rectangle {
+            Layout.alignment: Qt.AlignHCenter
+            implicitWidth: ver.implicitWidth + 20
+            implicitHeight: 22
+            radius: 11
+            color: Theme.fill
+            border.width: 1
+            border.color: Theme.hairline
+            Text { id: ver; anchors.centerIn: parent; text: "v" + appVersion; color: Theme.text2; font.family: Theme.mono; font.pixelSize: Theme.fsCaption }
+        }
         Text {
             Layout.fillWidth: true
             Layout.topMargin: 8

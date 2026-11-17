@@ -23,12 +23,18 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: 72
             Layout.preferredHeight: 72
+            Glow { anchors.fill: parent; radius: 24; spread: 40; strength: Theme.dark ? 0.35 : 0.2; visible: !sp.busy }
             Rectangle {
                 anchors.fill: parent
-                radius: 22
-                color: Theme.fill
+                radius: 24
                 visible: !sp.busy
-                Icon { anchors.centerIn: parent; name: sp.icon; size: 34; strokeWidth: 1.6; color: Theme.text2 }
+                border.width: 1
+                border.color: Theme.alpha(Theme.accent, 0.45)
+                gradient: Gradient {
+                    GradientStop { position: 0; color: Theme.alpha(Theme.accent2, Theme.dark ? 0.30 : 0.18) }
+                    GradientStop { position: 1; color: Theme.alpha(Theme.accent, Theme.dark ? 0.12 : 0.08) }
+                }
+                Icon { anchors.centerIn: parent; name: sp.icon; size: 34; strokeWidth: 1.6; color: Theme.accentText }
             }
             // A quiet spinner: an accent arc turning on a faint ring.
             Item {
@@ -63,8 +69,9 @@ Item {
             Layout.topMargin: 6
             text: sp.title
             color: Theme.text
-            font.pixelSize: 20
+            font.pixelSize: 22
             font.weight: Font.Bold
+            font.letterSpacing: -0.4
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
             Accessible.role: Accessible.Heading

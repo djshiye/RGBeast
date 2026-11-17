@@ -9,6 +9,7 @@ Item {
     property bool divider: true
     default property alias control: slot.data
     property bool stacked: false        // control under the text (narrow cards)
+    property string value: ""           // a live readout, shown monospaced before the control
     Layout.fillWidth: true
     implicitHeight: grid.implicitHeight + 24
 
@@ -28,12 +29,27 @@ Item {
         ColumnLayout {
             Layout.fillWidth: true
             spacing: 2
-            Text {
+            RowLayout {
                 Layout.fillWidth: true
-                text: row.title
-                color: Theme.text
-                font.pixelSize: Theme.fsBody
-                wrapMode: Text.Wrap
+                spacing: 10
+                Text {
+                    Layout.fillWidth: !row.stacked
+                    text: row.title
+                    color: Theme.text
+                    font.pixelSize: Theme.fsBody
+                    font.weight: Font.Medium
+                    wrapMode: Text.Wrap
+                }
+                Text {
+                    visible: row.value !== ""
+                    text: row.value
+                    color: Theme.accentText
+                    font.family: Theme.mono
+                    font.pixelSize: Theme.fsBody
+                    font.weight: Font.DemiBold
+                    Accessible.ignored: true
+                }
+                Item { Layout.fillWidth: row.stacked; visible: row.stacked }
             }
             Text {
                 Layout.fillWidth: true

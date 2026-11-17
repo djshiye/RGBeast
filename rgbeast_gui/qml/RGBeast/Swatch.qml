@@ -16,6 +16,13 @@ T.AbstractButton {
     Accessible.name: label
 
     background: Item {
+        Rectangle {     // its own light, glowing around it
+            anchors.centerIn: parent
+            width: sw.size + 10; height: width; radius: width / 2
+            color: Theme.alpha(sw.swatch, Theme.dark ? 0.22 : 0.16)
+            opacity: sw.hovered || sw.selected ? 1 : (Theme.dark ? 0.55 : 0)
+            Behavior on opacity { NumberAnimation { duration: Theme.fast } }
+        }
         Rectangle {     // selection: card-coloured gap, then the accent ring
             anchors.centerIn: parent
             width: sw.size + 8; height: width; radius: width / 2

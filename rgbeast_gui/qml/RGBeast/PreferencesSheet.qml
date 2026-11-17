@@ -89,7 +89,7 @@ Sheet {
                     selectByMouse: true
                     text: lighting.discoveryLog.length ? lighting.discoveryLog.join("\n") : "Nothing reported."
                     color: Theme.text2
-                    font.family: "Adwaita Mono"
+                    font.family: Theme.mono
                     font.pixelSize: Theme.fsCallout
                     wrapMode: TextEdit.Wrap
                     selectionColor: Theme.alpha(Theme.accent, 0.45)
@@ -129,13 +129,10 @@ Sheet {
 
     buttons: [ Button { text: "Done"; accent: true; onClicked: prefs.close() } ]
 
-    component Group: Text {
+    component Group: Eyebrow {
         Layout.fillWidth: true
-        Layout.topMargin: 16
-        Layout.bottomMargin: 2
-        color: Theme.text2
-        font.pixelSize: Theme.fsCallout
-        font.weight: Font.DemiBold
-        font.letterSpacing: 0.12
+        Layout.topMargin: 18
+        Layout.bottomMargin: 4
+        color: Theme.accentText
     }
 }

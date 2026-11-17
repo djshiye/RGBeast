@@ -21,22 +21,48 @@ T.Popup {
     implicitHeight: Math.max(implicitBackgroundHeight + topInset + bottomInset, implicitContentHeight + topPadding + bottomPadding)
     width: Math.min(preferredWidth, (parent ? parent.width : 600) - 48)
     height: Math.min(implicitHeight, (parent ? parent.height : 600) - 64)
-    padding: 22
-    topPadding: 20
+    padding: 24
+    topPadding: 22
     closePolicy: T.Popup.CloseOnEscape | T.Popup.CloseOnPressOutside
 
-    T.Overlay.modal: Rectangle {
-        color: Theme.scrim
+    T.Overlay.modal: Item {
         Behavior on opacity { NumberAnimation { duration: Theme.med } }
-    }
-    background: Item {
-        Shadow { anchors.fill: parent; radius: Theme.rLg; offsetY: 18; spread: 50; strength: Theme.dark ? 0.6 : 0.18 }
+        // Dims the window's frame only, so nothing shows past its rounded corners.
         Rectangle {
             anchors.fill: parent
-            radius: Theme.rLg
+            anchors.margins: Theme.windowMargin
+            radius: Theme.windowRadius
+            color: Theme.scrim
+        }
+    }
+    background: Item {
+        Shadow { anchors.fill: parent; radius: Theme.rXl; offsetY: 22; spread: 60; strength: Theme.dark ? 0.7 : 0.2 }
+        // A wash of the accent behind the glass, so the sheet floats in light.
+        Glow { anchors.fill: parent; radius: Theme.rXl; spread: 70; strength: Theme.dark ? 0.16 : 0.08 }
+        Rectangle {
+            anchors.fill: parent
+            radius: Theme.rXl
             color: Theme.surface2
             border.width: 1
-            border.color: Theme.dark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.06)
+            border.color: Theme.hairlineStrong
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 1
+                radius: parent.radius - 1
+                gradient: Gradient {
+                    GradientStop { position: 0; color: Theme.dark ? Qt.rgba(1, 1, 1, 0.04) : Qt.rgba(1, 1, 1, 0) }
+                    GradientStop { position: 0.4; color: "transparent" }
+                }
+            }
+            Rectangle {
+                x: parent.radius; width: parent.width - 2 * parent.radius; height: 1
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0; color: "transparent" }
+                    GradientStop { position: 0.5; color: Theme.rim }
+                    GradientStop { position: 1; color: "transparent" }
+                }
+            }
         }
     }
     enter: Transition {
@@ -59,8 +85,9 @@ T.Popup {
             text: d.title
             visible: text !== ""
             color: Theme.text
-            font.pixelSize: 17
+            font.pixelSize: 19
             font.weight: Font.Bold
+            font.letterSpacing: -0.3
             wrapMode: Text.Wrap
             Accessible.role: Accessible.Heading
         }

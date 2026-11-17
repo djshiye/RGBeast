@@ -12,9 +12,13 @@ Item {
     // Outer layers lighter than inner ones, so the shadow fades out instead of ending in a faint
     // edge (the window shadow, which has to fit in the window's 14 px margin).
     property bool fade: false
+    // Black for shadows; a light's colour makes it a glow (see Glow.qml).
+    property color color: "black"
+    property bool contact: true
 
     // The tight contact shadow (0 1px 2px).
     Rectangle {
+        visible: s.contact
         anchors.fill: parent
         anchors.topMargin: 1
         anchors.bottomMargin: -1
@@ -32,7 +36,7 @@ Item {
             width: s.width + grow * 2
             height: s.height + grow * 2
             radius: s.radius + grow
-            color: "black"
+            color: s.color
             opacity: s.strength / s.steps * 1.25 * (s.fade ? 2 * (s.steps - index) / (s.steps + 1) : 1)
         }
     }

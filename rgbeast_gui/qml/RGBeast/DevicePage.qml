@@ -15,6 +15,16 @@ Flickable {
     T.ScrollBar.vertical: Scroller {}
     // Same right edge on every page (.page padding 6 18 36 28), centred up to 980 px.
     readonly property real side: narrow ? 14 : 24
+    // The sidebar row of the page on show: its kind names the hero's eyebrow, its summary the readout.
+    readonly property var row: {
+        for (const d of (lighting.devices || []))
+            if (d.selected)
+                return d
+        return ({})
+    }
+    readonly property string kind: ({ grid: "Every Device", board: "Motherboard", memory: "Memory",
+                                       gpu: "Graphics Card", keyboard: "Keyboard", fan: "Fans",
+                                       strip: "Light Strip", cooler: "Cooler" })[row.icon] || "Device"
 
     ColumnLayout {
         id: inner
@@ -32,14 +42,51 @@ Flickable {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 2
+                spacing: 3
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.bottomMargin: 4
+                    spacing: 10
+                    Rectangle {
+                        implicitWidth: 3; implicitHeight: 12; radius: 1.5
+                        gradient: Gradient {
+                            GradientStop { position: 0; color: Theme.accent2 }
+                            GradientStop { position: 1; color: Theme.accent }
+                        }
+                        Glow { anchors.fill: parent; radius: 1.5; spread: 10; strength: Theme.dark ? 0.5 : 0.25 }
+                    }
+                    Eyebrow {
+                        Layout.fillWidth: true
+                        text: page.kind
+                        color: Theme.accentText
+                    }
+                    // A readout of the effect and the light count, monospaced like an instrument.
+                    Rectangle {
+                        visible: !lighting.isGroup && (page.row.subtitle || "") !== "" && !page.narrow
+                        implicitWidth: readout.implicitWidth + 20
+                        implicitHeight: 22
+                        radius: 11
+                        color: Theme.fill
+                        border.width: 1
+                        border.color: Theme.hairline
+                        Text {
+                            id: readout
+                            anchors.centerIn: parent
+                            text: (page.row.subtitle || "").toUpperCase()
+                            color: Theme.text2
+                            font.family: Theme.mono
+                            font.pixelSize: Theme.fsCaption
+                            font.letterSpacing: 0.6
+                        }
+                    }
+                }
                 Text {
                     Layout.fillWidth: true
                     text: lighting.title
                     color: Theme.text
-                    font.pixelSize: page.narrow ? 22 : Theme.fsDisplay
+                    font.pixelSize: page.narrow ? 24 : Theme.fsDisplay
                     font.weight: Font.Bold
-                    font.letterSpacing: -0.4
+                    font.letterSpacing: -0.7
                     elide: Text.ElideRight
                     Accessible.role: Accessible.Heading
                 }
@@ -61,14 +108,48 @@ Flickable {
                 radius: Theme.rMd + 2
                 color: Theme.stage
                 border.width: 1
-                border.color: Theme.dark ? Qt.rgba(1, 1, 1, 0.06) : Qt.rgba(0, 0, 0, 0.10)
-                Rectangle {     // inner glow from the top, like the audius device faceplate
+                border.color: Theme.dark ? Qt.rgba(1, 1, 1, 0.07) : Qt.rgba(0, 0, 0, 0.14)
+                // A faint dot grid: the bench the lights sit on.
+                Canvas {
+                    id: grid
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    renderStrategy: Canvas.Cooperative
+                    onWidthChanged: requestPaint()
+                    onHeightChanged: requestPaint()
+                    onPaint: {
+                        const ctx = getContext("2d")
+                        ctx.reset()
+                        const step = 18
+                        ctx.fillStyle = Qt.rgba(1, 1, 1, 0.055)
+                        for (let y = step / 2; y < height; y += step)
+                            for (let x = (width % step) / 2; x < width; x += step)
+                                ctx.fillRect(x, y, 1.2, 1.2)
+                    }
+                }
+                Rectangle {     // inner light from the top, fading into the dark
                     anchors.fill: parent
                     anchors.margins: 1
                     radius: parent.radius - 1
                     gradient: Gradient {
-                        GradientStop { position: 0; color: Qt.rgba(1, 1, 1, 0.035) }
-                        GradientStop { position: 0.6; color: "transparent" }
+                        GradientStop { position: 0; color: Qt.rgba(1, 1, 1, 0.04) }
+                        GradientStop { position: 0.55; color: "transparent" }
+                        GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.35) }
+                    }
+                }
+                // Corner marks, like the viewfinder of an instrument.
+                Repeater {
+                    model: 4
+                    delegate: Item {
+                        required property int index
+                        id: corner
+                        readonly property bool atRight: index % 2 === 1
+                        readonly property bool atBottom: index >= 2
+                        width: 12; height: 12
+                        x: atRight ? parent.width - width - 10 : 10
+                        y: atBottom ? parent.height - height - 10 : 10
+                        Rectangle { width: 12; height: 1.5; y: corner.atBottom ? 10.5 : 0; color: Qt.rgba(1, 1, 1, 0.22) }
+                        Rectangle { width: 1.5; height: 12; x: corner.atRight ? 10.5 : 0; color: Qt.rgba(1, 1, 1, 0.22) }
                     }
                 }
                 LedPreview {
@@ -288,6 +369,7 @@ Flickable {
                             Layout.preferredHeight: 44
                             radius: Theme.rMd
                             color: page.p.color || "#FFFFFF"
+                            Glow { anchors.fill: parent; radius: parent.radius; color: parent.color; spread: 22; strength: Theme.dark ? 0.6 : 0.35 }
                             border.width: 1
                             border.color: Theme.dark ? Qt.rgba(1, 1, 1, 0.2) : Qt.rgba(0, 0, 0, 0.12)
                             Accessible.ignored: true
@@ -295,7 +377,7 @@ Flickable {
                         TextField {
                             id: hex
                             Layout.preferredWidth: 130
-                            font.family: "Adwaita Mono"
+                            font.family: Theme.mono
                             font.pixelSize: Theme.fsHeadline
                             maximumLength: 7
                             placeholderText: "#RRGGBB"
@@ -338,7 +420,7 @@ Flickable {
                 visible: page.p.hasBrightness === true
                 divider: false
                 title: "Brightness"
-                description: brightness.value + "%"
+                value: brightness.value + "%"
                 stacked: page.narrow
                 Slider {
                     id: brightness
@@ -353,7 +435,7 @@ Flickable {
                 visible: page.p.hasSpeed === true
                 divider: page.p.hasBrightness === true
                 title: "Speed"
-                description: speed.value + "%"
+                value: speed.value + "%"
                 stacked: page.narrow
                 Slider {
                     id: speed

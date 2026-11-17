@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Look
+- A new look, "Spectral": a deep canvas lit by an ambient wash of the colours your lights are
+  showing, glass cards with a lit top rim, and the desktop's accent as a short glowing gradient on
+  the active effect, the primary button, switches, sliders and the selected device.
+- Eyebrow headings for sections and cards, the kind of device above its name, and monospaced
+  readouts for the effect, light count, brightness and speed.
+- The preview stage has a faint dot grid and corner marks; sheets float in a soft accent glow, and
+  the status line at the bottom of the sidebar has a slow heartbeat while the service is there.
+- The dimmed backdrop behind sheets no longer shows as a grey box past the window's rounded corners.
+
 ## 1.2.0 (2026-11-17)
 
 Lighting

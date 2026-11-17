@@ -5,7 +5,7 @@ import QtQuick.Templates as T
 T.TextField {
     id: f
     property bool invalid: false
-    implicitHeight: 30
+    implicitHeight: 32
     implicitWidth: 180
     leftPadding: 10
     rightPadding: 10
@@ -17,14 +17,14 @@ T.TextField {
     font.pixelSize: Theme.fsBody
     selectByMouse: true
     background: Rectangle {
-        radius: 8
-        color: Theme.fill
+        radius: 10
+        color: Theme.sunken
         border.width: 1
         border.color: f.invalid ? Theme.danger : f.activeFocus ? Theme.accent : Theme.hairline
         Rectangle {     // 0 0 0 3px halo
             anchors.fill: parent
             anchors.margins: -3
-            radius: 11
+            radius: 13
             color: "transparent"
             border.width: 3
             border.color: Theme.alpha(f.invalid ? Theme.danger : Theme.accent, 0.30)
