@@ -23,6 +23,9 @@ concurrency:
 env:
   APP: rgbeast
   SITE_URL: https://djshiye.github.io/RGBeast
+  # The repository signing key. Only a key with this fingerprint is shipped in the package,
+  # used to sign, or trusted when the repository is assembled. Change it when the key changes.
+  SIGNING_KEY_FPR: D49A308168257FDBF9D5AE14BD1AC1C6F56A7252
 
 jobs:
   fedora:
@@ -53,26 +56,23 @@ jobs:
           dnf install -y rust cargo clippy rustfmt meson ninja-build gcc \
             systemd-devel python3-pyside6 qt6-qtsvg \
             desktop-file-utils appstream gettext rpm-build rpmdevtools rpmlint \
-            cargo-rpm-macros systemd-rpm-macros python3 tar xz dbus-daemon gnupg2
+            cargo-rpm-macros systemd-rpm-macros python3 tar xz dbus-daemon gnupg2 \
+            rpm-sign python3-rpm curl
 
-      # The only step that sees the signing secret, before any project code
-      # runs: it exports the public half for the package and forgets the rest.
+      # The package ships the public key, taken from the published repository and checked
+      # against the pinned fingerprint. This job never sees the private key.
       - name: Public signing key
-        env:
-          RPM_SIGNING_KEY: ${{ secrets.RPM_SIGNING_KEY }}
         run: |
           rpmdev-setuptree
           export GNUPGHOME=$(mktemp -d)
-          if [ -n "$RPM_SIGNING_KEY" ]; then
-            printf '%s\n' "$RPM_SIGNING_KEY" | gpg --batch --quiet --import
-          elif [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-            # Pull requests from forks get no secrets: build with a throwaway key.
-            gpg --batch --passphrase '' --quick-gen-key 'Throwaway CI key' rsa2048 sign 1d
-          else
-            echo "::error::The RPM_SIGNING_KEY secret is not set for this repository."
+          curl -fsSL --retry 5 --retry-all-errors -o "$RUNNER_TEMP/key.asc" "$SITE_URL/RPM-GPG-KEY-djshiye"
+          gpg --batch --quiet --import "$RUNNER_TEMP/key.asc"
+          FPRS=$(gpg --batch --with-colons --list-keys | awk -F: '/^pub/ {p=1; next} p && /^fpr/ {print $10; p=0}')
+          if [ "$FPRS" != "$SIGNING_KEY_FPR" ]; then
+            echo "::error::The published key is not the pinned key $SIGNING_KEY_FPR (found: $FPRS)."
             exit 1
           fi
-          gpg --batch --armor --export-options export-minimal --export > ~/rpmbuild/SOURCES/RPM-GPG-KEY-djshiye
+          gpg --batch --armor --export-options export-minimal --export "$SIGNING_KEY_FPR" > ~/rpmbuild/SOURCES/RPM-GPG-KEY-djshiye
           gpgconf --kill all
           rm -rf "$GNUPGHOME"
 
@@ -174,6 +174,10 @@ jobs:
           rpm -qp --requires out/*.x86_64.rpm
           echo "evr=$(rpm -qp --qf '%{VERSION}-%{RELEASE}' out/*.x86_64.rpm)" >> "$GITHUB_OUTPUT"
 
+      # Throwaway keys only: a package signed with any key but the repository's is refused.
+      - name: Repository accepts only its own key
+        run: python3 -I build-aux/test-signing.py out/rgbeast-[0-9]*.x86_64.rpm
+
       - name: No Python version pinned
         run: |
           if rpm -qp --requires out/*.x86_64.rpm | grep -E '^python\(abi\)|python3\.[0-9]+'; then
@@ -214,13 +218,17 @@ jobs:
           dnf install -y rpm-sign createrepo_c python3-rpm gnupg2
           printf '%s\n' "$RPM_SIGNING_KEY" | gpg --batch --quiet --import
           FPR=$(gpg --batch --with-colons --list-secret-keys | awk -F: '/^fpr/ {print $10; exit}')
+          if [ "$FPR" != "$SIGNING_KEY_FPR" ]; then
+            echo "::error::RPM_SIGNING_KEY is not the pinned key $SIGNING_KEY_FPR; update SIGNING_KEY_FPR if the key changed."
+            exit 1
+          fi
           gpg --batch --armor --export-options export-minimal --export "$FPR" > "$RUNNER_TEMP/key.asc"
           rpmsign --define "_gpg_name $FPR" --addsign new/*.rpm
           python3 build-aux/dnf-repo.py --app "$APP" --url "$SITE_URL" --title RGBeast \
             --summary "RGB lighting control for GNOME" \
             --icon data/icons/hicolor/scalable/apps/io.github.djshiye.RGBeast.svg \
             --new new --site site --fetch \
-            --repo-file build-aux/rgbeast.repo --key "$RUNNER_TEMP/key.asc"
+            --repo-file build-aux/rgbeast.repo --key "$RUNNER_TEMP/key.asc" --fingerprint "$FPR"
           gpgconf --kill all
           echo "### Signed with key \`$FPR\`" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-pages-artifact@v3

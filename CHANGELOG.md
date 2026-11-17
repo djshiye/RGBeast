@@ -12,6 +12,12 @@ Look
   the status line at the bottom of the sidebar has a slow heartbeat while the service is there.
 - The dimmed backdrop behind sheets no longer shows as a grey box past the window's rounded corners.
 
+Packaging
+- The repository publishes only packages signed with its own key; before, a package signed with
+  any key the build machine trusted would have passed.
+- The build no longer handles the private signing key: it uses the published public key, checked
+  against a pinned fingerprint. Signing also stops if the secret key is not the pinned one.
+
 ## 1.2.0 (2026-11-17)
 
 Lighting

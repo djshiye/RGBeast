@@ -133,7 +133,9 @@ private session bus, the app's unit tests and an offscreen self-test against the
 `main` then sign the RPMs (key in the `RPM_SIGNING_KEY` secret), publish the repository
 (`build-aux/dnf-repo.py`) and install it in clean Fedora 44 and 45 containers
 (`build-aux/verify-install.sh`). The spec also needs the public key as `RPM-GPG-KEY-djshiye` in
-`SOURCES`; CI exports it from the secret.
+`SOURCES`; CI downloads it from the published repository and checks it against the fingerprint
+pinned in `SIGNING_KEY_FPR`, so the build never sees the private key. Only packages signed with
+that one key are published (`build-aux/test-signing.py` proves it on every build).
 
 ## Design
 
