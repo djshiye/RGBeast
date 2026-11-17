@@ -8,7 +8,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use rgbeast_core::{DeviceState, discover::DiscoveryConfig};
+use rgbeast_core::{DeviceState, KeyboardOptions, discover::DiscoveryConfig};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -18,6 +18,10 @@ pub struct Persisted {
     pub header_leds: BTreeMap<String, Vec<u32>>,
     /// Re-apply the stored state when the machine wakes from sleep.
     pub restore_on_resume: bool,
+    /// Untested devices the owner turned control on for.
+    pub unlocked: Vec<String>,
+    /// Profile, layer and debounce of each Glorious keyboard.
+    pub keyboard_options: BTreeMap<String, KeyboardOptions>,
 }
 
 #[derive(Clone)]
@@ -113,6 +117,27 @@ impl Store {
         self.flush(&d);
     }
 
+    pub fn unlocked(&self, id: &str) -> bool {
+        self.lock().unlocked.iter().any(|u| u == id)
+    }
+
+    pub fn set_unlocked(&self, id: &str, on: bool) {
+        let mut d = self.lock();
+        d.unlocked.retain(|u| u != id);
+        if on {
+            d.unlocked.push(id.to_string());
+        }
+        self.flush(&d);
+    }
+
+    pub fn set_keyboard_options(&self, id: &str, o: &KeyboardOptions) {
+        let mut d = self.lock();
+        if d.keyboard_options.get(id) != Some(o) {
+            d.keyboard_options.insert(id.to_string(), *o);
+            self.flush(&d);
+        }
+    }
+
     pub fn discovery_config(&self) -> DiscoveryConfig {
         let d = self.lock();
         DiscoveryConfig {
@@ -120,6 +145,11 @@ impl Store {
                 .header_leds
                 .iter()
                 .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+            keyboard_options: d
+                .keyboard_options
+                .iter()
+                .map(|(k, v)| (k.clone(), *v))
                 .collect(),
         }
     }
@@ -146,6 +176,22 @@ mod tests {
             s2.discovery_config().header_leds,
             vec![("a".to_string(), vec![0, 0, 36])]
         );
+        assert!(!s2.unlocked("k"));
+        s2.set_unlocked("k", true);
+        let o = KeyboardOptions {
+            profile: 2,
+            layer: 1,
+            debounce_ms: 8,
+        };
+        s2.set_keyboard_options("k", &o);
+        let s3 = Store::open(&dir);
+        assert!(s3.unlocked("k"));
+        assert_eq!(
+            s3.discovery_config().keyboard_options,
+            vec![("k".to_string(), o)]
+        );
+        s3.set_unlocked("k", false);
+        assert!(!Store::open(&dir).unlocked("k"));
         fs::remove_dir_all(&dir).ok();
     }
 }

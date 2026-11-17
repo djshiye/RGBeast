@@ -271,6 +271,7 @@ impl<B: Smbus> Ene<B> {
             zones,
             modes: mode_list(),
             can_save: true,
+            ..Default::default()
         };
         Ok(Ene {
             bus,
@@ -406,6 +407,7 @@ impl<B: Smbus> Driver for Ene<B> {
             },
             random,
             zones,
+            ..Default::default()
         }))
     }
 

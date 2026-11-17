@@ -406,6 +406,31 @@ class Lighting(QObject):
     def setRandom(self, on):
         self._edited(self.editor.set_random(on))
 
+    @Slot(str, bool)
+    def setSwitch(self, switch_id, on):
+        self._edited(self.editor.set_switch(switch_id, on))
+
+    @Slot(bool)
+    def setUnlocked(self, on):
+        """Turn lighting control of the current (untested) device on or off."""
+        dev_id = self.current
+        if dev_id not in self.infos:
+            return
+
+        def ok(info):
+            if dev_id not in self.infos:
+                return
+            self.infos[dev_id] = info
+            if dev_id == self.current:
+                self.editor.set_info(info)
+            self.devicesChanged.emit()
+            self.currentChanged.emit()
+            self._editor_changed()
+            if on:
+                self.toast.emit(f"Lighting control is on for {info.get('name', 'this device')}")
+
+        self.client.set_unlocked(dev_id, on, ok, self._report)
+
     # ================================================================ talking to the daemon
     def _apply_now(self):
         state = copy.deepcopy(self.editor.state)
@@ -444,6 +469,8 @@ class Lighting(QObject):
 
     def _apply_to_all(self, group):
         for dev_id, info in self.infos.items():
+            if info.get("locked"):
+                continue
             mapped = M.map_group_state(info, group)
             if mapped is not None:
                 self._apply_state(dev_id, mapped, adopt=False, feedback=False)
@@ -527,8 +554,8 @@ class Lighting(QObject):
         scene = self.scenes.get(name)
         if scene is None:
             return
-        for dev_id in self.infos:
-            if dev_id in scene["states"]:
+        for dev_id, info in self.infos.items():
+            if dev_id in scene["states"] and not info.get("locked"):
                 self._apply_state(dev_id, scene["states"][dev_id], adopt=True, feedback=False)
         self.applied.emit()
         self.toast.emit(f"Scene “{name}” applied")
@@ -630,15 +657,23 @@ class Lighting(QObject):
                           "min": int(z.get("leds_min", 0)), "max": int(z.get("leds_max", 0)),
                           "sizable": M.is_sizable(z)})
         v["zones"] = zones
-        v["showZones"] = len(zones) > 1 or any(z["sizable"] for z in zones)
+        info = self.editor.info
+        keyboard = info.get("kind") == "keyboard"
+        # A keyboard's keys and side lights are painted in the preview, not listed.
+        v["showZones"] = not keyboard and (len(zones) > 1 or any(z["sizable"] for z in zones))
+        v["locked"] = bool(info.get("locked")) and not self.editor.is_group
+        v["untested"] = bool(info.get("untested")) and not self.editor.is_group
+        v["deviceName"] = info.get("name", "")
         return v
 
     def _preview(self):
         if self.editor.is_group:
-            layout = M.group_preview([(self.infos[d], self.states[d]) for d in self.infos])
+            layout = M.group_preview([(self.infos[d], self.states[d]) for d in self.infos
+                                      if not self.infos[d].get("locked")])
         else:
             layout = self.editor.preview()
-        return [{"name": z["name"], "shape": z["shape"], "colors": _hexes(z["colors"]), "rowBreak": z["row_break"]}
+        return [{"name": z["name"], "shape": z["shape"], "colors": _hexes(z["colors"]), "rowBreak": z["row_break"],
+                 "keys": z.get("keys") or []}
                 for z in layout]
 
     def _effect(self):

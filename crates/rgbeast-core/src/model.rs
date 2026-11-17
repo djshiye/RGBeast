@@ -1,6 +1,8 @@
 //! The device model shared by the daemon and the app. Everything here is
 //! plain data that serialises to JSON, which is also what crosses D-Bus.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result, Rgb};
@@ -14,6 +16,7 @@ pub enum DeviceKind {
     Fans,
     Strip,
     Cooler,
+    Keyboard,
     #[default]
     Unknown,
 }
@@ -29,6 +32,32 @@ pub struct ZoneInfo {
     /// Minimum and maximum LED count. Equal to `leds` on fixed zones.
     pub leds_min: u32,
     pub leds_max: u32,
+    /// Where each LED sits on a keyboard, in LED order (empty for strips,
+    /// fans and sticks).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub keys: Vec<KeyRect>,
+}
+
+/// One key of a keyboard zone, in quarter-key units from the top-left key.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyRect {
+    pub label: String,
+    pub x: u16,
+    pub y: u16,
+    pub w: u16,
+    pub h: u16,
+}
+
+/// An on/off setting of a device that is not an effect, e.g. a keyboard's
+/// side lights.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SwitchInfo {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub default: bool,
 }
 
 impl ZoneInfo {
@@ -39,6 +68,7 @@ impl ZoneInfo {
             leds,
             leds_min: leds,
             leds_max: leds,
+            keys: Vec::new(),
         }
     }
     pub fn sizable(id: &str, name: &str, leds: u32, max: u32) -> Self {
@@ -48,6 +78,7 @@ impl ZoneInfo {
             leds,
             leds_min: 0,
             leds_max: max,
+            keys: Vec::new(),
         }
     }
     pub fn is_sizable(&self) -> bool {
@@ -143,6 +174,20 @@ pub struct DeviceInfo {
     pub modes: Vec<ModeInfo>,
     /// The device can store the current effect as its power-on default.
     pub can_save: bool,
+    /// On/off settings beside the effect (`DeviceState::switches`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub switches: Vec<SwitchInfo>,
+    /// The driver has not been confirmed on real hardware yet.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub untested: bool,
+    /// Untested, and the owner has not turned control on: the daemon sends
+    /// nothing to the device.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub locked: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 impl DeviceInfo {
@@ -184,6 +229,47 @@ pub struct DeviceState {
     /// Per-LED colours by zone (for `ColorMode::PerLed`).
     #[serde(default)]
     pub zones: Vec<ZoneState>,
+    /// Values of the device's switches (`DeviceInfo::switches`).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub switches: BTreeMap<String, bool>,
+}
+
+/// Keyboard settings that share a report with the lighting on Glorious
+/// keyboards. RGBeast has no page for them: Wheelguard (the keyboard's
+/// settings app) sets them through the daemon, so a single program writes
+/// that report and neither undoes the other's change.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeyboardOptions {
+    /// The board's active profile, 1..=3.
+    pub profile: u8,
+    /// The active layer of that profile, 1..=3.
+    pub layer: u8,
+    /// Key debounce in milliseconds: 2, 8 or 16.
+    pub debounce_ms: u8,
+}
+
+impl Default for KeyboardOptions {
+    fn default() -> Self {
+        KeyboardOptions {
+            profile: 1,
+            layer: 1,
+            // The board's factory setting, so lighting never changes debounce before Wheelguard says.
+            debounce_ms: 16,
+        }
+    }
+}
+
+impl KeyboardOptions {
+    pub fn check(&self) -> Result<()> {
+        if !(1..=3).contains(&self.profile) || !(1..=3).contains(&self.layer) {
+            return Err(Error::invalid("profile and layer are 1, 2 or 3"));
+        }
+        if ![2, 8, 16].contains(&self.debounce_ms) {
+            return Err(Error::invalid("debounce is 2, 8 or 16 ms"));
+        }
+        Ok(())
+    }
 }
 
 fn default_brightness() -> u32 {
@@ -203,6 +289,7 @@ impl Default for DeviceState {
             direction: String::new(),
             random: false,
             zones: Vec::new(),
+            switches: BTreeMap::new(),
         }
     }
 }
@@ -324,6 +411,14 @@ pub fn validate(info: &DeviceInfo, state: &DeviceState) -> Result<DeviceState> {
     if !mode.has_speed {
         out.speed = 50;
     }
+    out.switches = info
+        .switches
+        .iter()
+        .map(|sw| {
+            let on = state.switches.get(&sw.id).copied().unwrap_or(sw.default);
+            (sw.id.clone(), on)
+        })
+        .collect();
     Ok(out)
 }
 
@@ -353,6 +448,7 @@ mod tests {
                 ModeInfo::new("multi", "Multi").colors(2, 4),
             ],
             can_save: false,
+            ..Default::default()
         }
     }
 

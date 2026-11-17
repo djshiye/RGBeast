@@ -151,5 +151,36 @@ class VersionTests(unittest.TestCase):
         self.assertEqual(__version__, cargo)
 
 
+class KeyboardTests(unittest.TestCase):
+    def info(self):
+        return {"id": "kb", "name": "GMMK Pro", "kind": "keyboard", "zones": [
+            {"id": "keys", "name": "Keys", "leds": 2, "leds_min": 2, "leds_max": 2,
+             "keys": [{"label": "A", "x": 0, "y": 0, "w": 4, "h": 4}, {"label": "B", "x": 4, "y": 0, "w": 4, "h": 4}]},
+            {"id": "sides", "name": "Side Lights", "leds": 1, "leds_min": 1, "leds_max": 1}],
+            "modes": [M.new_mode("static", "Static", "mode-colors", 1, 1)],
+            "switches": [{"id": "side-lights", "name": "Side Lights", "description": "", "default": True}]}
+
+    def test_shapes_and_icon(self):
+        info = self.info()
+        self.assertEqual(M.zone_shape(info, info["zones"][0]), M.KEYBOARD)
+        self.assertEqual(M.zone_shape(info, info["zones"][1]), M.SIDEBARS)
+        self.assertEqual(M.device_icon(info), "keyboard")
+        prev = M.device_preview(info, M.default_state())
+        self.assertEqual(len(prev[0]["keys"]), 2)
+
+    def test_switches_roundtrip(self):
+        js = M.state_to_json(M.default_state())
+        self.assertNotIn("switches", js)
+        s = M.state_from_json({"mode": "static", "switches": {"side-lights": False}})
+        self.assertEqual(s["switches"], {"side-lights": False})
+        self.assertEqual(M.state_to_json(s)["switches"], {"side-lights": False})
+        self.assertEqual(M.state_from_json({"mode": "static", "switches": [1]})["switches"], {})
+
+    def test_group_state_carries_no_switches(self):
+        g = M.static_state((1, 2, 3))
+        g["switches"] = {"side-lights": False}
+        self.assertEqual(M.map_group_state(self.info(), g)["switches"], {})
+
+
 if __name__ == "__main__":
     unittest.main()

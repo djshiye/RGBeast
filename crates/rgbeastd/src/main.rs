@@ -32,17 +32,42 @@ struct Args {
     /// Where to keep state.json (default: $STATE_DIRECTORY or /var/lib/rgbeast).
     #[arg(long)]
     state_dir: Option<PathBuf>,
+    /// udev helper: print RGBEAST_GMMK=1 when this hidraw node (its sysfs
+    /// path) is a vendor-only interface of a Glorious GMMK Pro.
+    #[arg(long, value_name = "SYSFS_PATH", hide = true)]
+    udev_gmmk: Option<PathBuf>,
+}
+
+/// Reads the node's report descriptor and nothing else; touches no device.
+fn udev_gmmk(syspath: &std::path::Path) -> std::process::ExitCode {
+    match std::fs::read(syspath.join("device").join("report_descriptor")) {
+        Ok(desc) => {
+            if rgbeast_core::drivers::gmmk::vendor_only(&desc) {
+                println!("RGBEAST_GMMK=1");
+            }
+            std::process::ExitCode::SUCCESS
+        }
+        Err(_) => std::process::ExitCode::FAILURE,
+    }
+}
+
+fn main() -> Result<std::process::ExitCode, Box<dyn std::error::Error>> {
+    let args = Args::parse();
+    if let Some(path) = &args.udev_gmmk {
+        return Ok(udev_gmmk(path));
+    }
+    run(args)?;
+    Ok(std::process::ExitCode::SUCCESS)
 }
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .without_time()
         .init();
-    let args = Args::parse();
 
     let state_dir = args
         .state_dir

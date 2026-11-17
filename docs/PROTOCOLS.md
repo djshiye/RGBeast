@@ -107,6 +107,50 @@ Modes (value written to `0x09`): Static `0x00`, Rainbow/Spectrum `0x01`, Rhythm 
 `0x06`, Voltage `0x07`, Countdown `0x08`, Flame `0x09`, Twilight `0x0A`, Fury `0x0B`, Direct
 `0x10`, Prism `0x11`. Modes that share a value differ in delay/length/direction registers.
 
+## Glorious GMMK Pro (stock firmware)
+
+Read statically from Glorious CORE 2.1.23 (the vendor's Windows app; `GMMKDeviceHandler` and its
+`Prepare…Buffer` helpers). Not yet confirmed on a real keyboard, so the device starts locked
+(`DeviceInfo::untested`, `locked`) and nothing is sent until the owner turns it on.
+
+- USB `320F:5044` ANSI, `5046` ISO, `5092` / `5093` the "Alt" ANSI / ISO boards (`/` and `\`
+  swapped in the matrix). Bootloader IDs `B007`, `B009`, `B00F`, `B010` are never touched.
+  A board flashed with QMK keeps the IDs but has no `0xFF01` interface, so it is not found.
+- Settings: HID **feature** report ID 7 on the interface with usage page `0xFF01`, usage 1.
+  CORE builds 264-byte frames; RGBeast pads each frame to the descriptor's report length and
+  refuses a board whose report is shorter than 208 or longer than 1024 bytes. Firmware version is
+  the USB `bcdDevice` (`0x0045` = 0.45). The board cannot report its settings back.
+- Events: input reports on the interface with usage page `0xFF00`, usage `0xFF00`.
+  `04 F1 pp ll` = the active profile `pp` / layer `ll` (1–3) changed on the board.
+- Lighting lives in each profile and layer. RGBeast writes the active one, in CORE's order, then
+  commits: properties `0x07`, effect `0x02`, per-key pages `0x06` (only when they changed),
+  commit `0x01`. CORE pauses 100 ms after each frame and 550 ms after the commit.
+
+| Frame | Bytes (after `07`) |
+|---|---|
+| `0x07` properties | `[2]` profile, `[3]` layer, `[4]` effect, `[5]` 0, `[6]` 1, `[7]` side lights (0 = on), `[8]` brightness 0–20, `[10]` debounce ms (2, 8, 16) |
+| `0x02` effect | `[2]` effect, `[8]` 100 − speed, `[9]` brightness 0–20, `[10]` and `[12]` 1 for multicolour, `[15..17]` R, G, B |
+| `0x06` per-key | `[2]` profile, `[3]` layer, `[4]` 83, `[5]` page 0–2, `[6]` 20, `[8..208]` 40 LED slots × 5 bytes: `FF` (or `FE` breathing), slot, R, G, B; all zero = the key follows the effect |
+| `0x01` commit | `[2]` profile, `[3]` layer |
+| `0x08` polling | Wheelguard's; never sent by RGBeast |
+
+Effects (`[4]` / `[2]`): Off 0, Glorious Mode 1, Wave 1 2, Wave 2 3, Spiraling Wave 4, Acid 5,
+Breathing 6, Static (CORE: Single Color) 7, Ripple 8, Pass Without Trace 9, Fast Run Without
+Trace 10, Matrix 2 11, Matrix 3 12, Rainbow 13, Heartbeat 14, Digital Times 15, Kamehameha 16,
+Ping Pong 17, Surmount 18. Per-key colours sit on top of Static.
+
+LED slots are the keymap positions (Escape 0 … F12 12, Print Screen 13, the knob 14 has no light;
+rows start at 20, 40, 60, 80, 100). The side bars are slots 15–18, 35–38, 55–58 and 75–78; CORE
+gives them one colour.
+
+**Shared with Wheelguard.** The properties frame also carries the debounce, which Wheelguard (the
+keyboard's settings app) owns. So that only one program writes it, Wheelguard sends debounce,
+profile and layer to the daemon (`SetKeyboardOptions(id, '{"profile":1,"layer":1,"debounce_ms":8}')`)
+while RGBeast manages the keyboard; a new debounce goes to all three layers of the profile with
+the current lighting, as CORE does. A profile or layer change is only noted. When RGBeast is
+absent or the keyboard is locked, Wheelguard writes the frame itself with the board's default
+lighting.
+
 ## Linux plumbing
 
 - I2C adapters: `/sys/bus/i2c/devices/i2c-N/name`. `SMBus PIIX4 adapter port 0 at 0b00` is the
@@ -119,7 +163,10 @@ Modes (value written to `0x09`): Static `0x00`, Rainbow/Spectrum `0x01`, Rhythm 
 - Opening `/dev/i2c-N` and selecting the slave uses `I2C_SLAVE`; RGBeast never uses
   `I2C_SLAVE_FORCE`, so it cannot talk to an address a kernel driver already owns.
 - hidraw devices: `/sys/class/hidraw/hidrawN/device/uevent` (`HID_ID=0003:00000B05:000019AF`),
-  report descriptor at `.../device/report_descriptor` for the usage page.
+  report descriptor at `.../device/report_descriptor` for the usage page. The GMMK Pro's udev rule
+  runs `rgbeastd --udev-gmmk %S%p`, which reads that descriptor and prints `RGBEAST_GMMK=1` only for
+  a node whose top-level collections are all vendor pages and include `0xFF01`/1 or `0xFF00`/`0xFF00`.
+  The two interfaces of one board are paired by their USB device (`device/../..` in sysfs).
 
 ## Sapphire Nitro Glow V3 (graphics cards)
 

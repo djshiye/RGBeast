@@ -25,6 +25,28 @@ class LayoutTests(unittest.TestCase):
             self.assertGreaterEqual(d.x - d.r, 0)
             self.assertLessEqual(d.x + d.r, 560)
 
+    def test_keyboard_keys_are_caps_and_clickable(self):
+        keys = [{"label": "Esc", "x": 0, "y": 0, "w": 4, "h": 4}, {"label": "Space", "x": 4, "y": 4, "w": 25, "h": 4}]
+        z = dict(zone("Keys", M.KEYBOARD, 2), keys=keys)
+        f = E.layout([z], 700)
+        self.assertEqual(len(f.dots), 2)
+        esc, space = f.dots
+        self.assertIsNotNone(esc.rect)
+        self.assertGreater(space.rect[2], esc.rect[2] * 5)
+        for d in f.dots:
+            self.assertLessEqual(d.rect[0] + d.rect[2], 700)
+        self.assertEqual(E.hit(f, space.rect[0] + 3, space.rect[1] + 3), (0, 1))
+        self.assertLess(esc.t, space.t)
+
+    def test_keyboard_waves_move(self):
+        keys = [{"label": "A", "x": i * 4, "y": 0, "w": 4, "h": 4} for i in range(8)]
+        z = dict(zone("Keys", M.KEYBOARD, 8), keys=keys)
+        f = E.layout([z], 700)
+        eff = {"mode": "wave-1", "speed": 50, "brightness": 100, "colors": [RED], "random": False}
+        a = [E.color_at([z], d, 0.0, eff) for d in f.dots]
+        b = [E.color_at([z], d, 0.7, eff) for d in f.dots]
+        self.assertNotEqual(a, b)
+
     def test_empty_zones_are_skipped(self):
         f = E.layout([zone("Empty", M.STRIP, 0)], 600)
         self.assertEqual(f.dots, [])

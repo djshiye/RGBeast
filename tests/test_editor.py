@@ -111,5 +111,17 @@ class EditorTests(unittest.TestCase):
         self.assertEqual(e.view()["color"], "#050505")
 
 
+class SwitchTests(unittest.TestCase):
+    def test_switch_toggles_and_shows(self):
+        e = editor()
+        e.info["switches"] = [{"id": "side-lights", "name": "Side Lights", "description": "Bars", "default": True}]
+        self.assertEqual(e.view()["switches"][0]["on"], True)
+        self.assertFalse(e.set_switch("side-lights", True))
+        self.assertTrue(e.set_switch("side-lights", False))
+        self.assertEqual(e.state["switches"], {"side-lights": False})
+        self.assertEqual(e.view()["switches"][0]["on"], False)
+        self.assertFalse(e.set_switch("nope", True))
+
+
 if __name__ == "__main__":
     unittest.main()

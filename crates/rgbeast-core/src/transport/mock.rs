@@ -10,6 +10,8 @@ use super::{HidTransport, Smbus};
 #[derive(Default)]
 pub struct MockHid {
     pub written: Vec<Vec<u8>>,
+    /// Feature reports sent, in order.
+    pub features: Vec<Vec<u8>>,
     pub replies: VecDeque<Vec<u8>>,
 }
 
@@ -17,6 +19,7 @@ impl MockHid {
     pub fn with_replies(replies: Vec<Vec<u8>>) -> Self {
         MockHid {
             written: Vec::new(),
+            features: Vec::new(),
             replies: replies.into(),
         }
     }
@@ -36,6 +39,10 @@ impl HidTransport for MockHid {
             }
             None => Ok(0),
         }
+    }
+    fn send_feature(&mut self, data: &[u8]) -> Result<()> {
+        self.features.push(data.to_vec());
+        Ok(())
     }
 }
 

@@ -76,6 +76,38 @@ class SimulatorTests(unittest.TestCase):
         self.assertNotIn("err", self.call("set_restore_on_resume", False))
         self.assertIs(self.call("get_property", "RestoreOnResume")["ok"], False)
 
+    def busctl(self, method, sig, *args):
+        """Methods the app does not call (Wheelguard does), through busctl."""
+        from rgbeast_gui.client import IFACE, PATH, SERVICE
+        return subprocess.run(["busctl", "--user", "--json=short", "call", SERVICE, PATH, IFACE, method, sig,
+                               *[str(a) for a in args]], capture_output=True, text=True, timeout=10)
+
+    def test_untested_keyboard_stays_locked_until_turned_on(self):
+        kb = next(d for d in self.call("list_devices")["ok"] if d["kind"] == "keyboard")
+        self.assertTrue(kb["untested"])
+        self.assertTrue(kb["locked"])
+        state = {"mode": "static", "colors": [{"r": 1, "g": 2, "b": 3}], "brightness": 40, "speed": 50,
+                 "direction": "", "random": False, "zones": []}
+        self.assertEqual(self.call("set_state", kb["id"], state)["err"][0], "failed")
+        r = self.busctl("SetKeyboardOptions", "ss", kb["id"], '{"profile":1,"layer":1,"debounce_ms":8}')
+        self.assertNotEqual(r.returncode, 0, "locked keyboards take no settings either")
+        # Fury is not an untested device: nothing to turn on.
+        self.assertIn("err", self.call("set_unlocked", "sim:fury", True))
+
+        info = self.call("set_unlocked", kb["id"], True)["ok"]
+        self.assertFalse(info.get("locked", False))
+        applied = self.call("set_state", kb["id"], state)["ok"]
+        self.assertEqual(applied["switches"], {"side-lights": True})
+        r = self.busctl("SetKeyboardOptions", "ss", kb["id"], '{"profile":2,"layer":3,"debounce_ms":8}')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        r = self.busctl("GetKeyboardOptions", "s", kb["id"])
+        self.assertEqual(json.loads(json.loads(r.stdout)["data"][0]), {"profile": 2, "layer": 3, "debounce_ms": 8})
+        r = self.busctl("SetKeyboardOptions", "ss", kb["id"], '{"profile":2,"layer":3,"debounce_ms":5}')
+        self.assertNotEqual(r.returncode, 0)
+
+        self.assertTrue(self.call("set_unlocked", kb["id"], False)["ok"]["locked"])
+        self.assertEqual(self.call("set_state", kb["id"], state)["err"][0], "failed")
+
     def test_discovery_log(self):
         self.assertIsInstance(self.call("discovery_log")["ok"], list)
 

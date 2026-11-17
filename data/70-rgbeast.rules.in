@@ -15,5 +15,12 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="19af", GROUP="@
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1aa6", GROUP="@rgbeast_user@", MODE="0660", RUN+="/usr/bin/setfacl -m g::rw $devnode"
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="1bed", GROUP="@rgbeast_user@", MODE="0660", RUN+="/usr/bin/setfacl -m g::rw $devnode"
 
+# Glorious GMMK Pro keyboards on their stock firmware: only the two vendor interfaces (settings and
+# events). The node that carries the keys is never given to the daemon, so it cannot read what is
+# typed; rgbeastd --udev-gmmk reads the node's HID descriptor from sysfs and prints RGBEAST_GMMK=1 only
+# for a vendor-only interface.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="320f", ATTRS{idProduct}=="5044|5046|5092|5093", IMPORT{program}="@libexecdir@/rgbeastd --udev-gmmk %S%p"
+SUBSYSTEM=="hidraw", ENV{RGBEAST_GMMK}=="1", GROUP="@rgbeast_user@", MODE="0660", RUN+="/usr/bin/setfacl -m g::rw $devnode"
+
 # SMBus / I2C adapters: chipset SMBus (DRAM) and the GPU's lighting bus.
 SUBSYSTEM=="i2c-dev", GROUP="@rgbeast_user@", MODE="0660", RUN+="/usr/bin/setfacl -m g::rw $devnode"

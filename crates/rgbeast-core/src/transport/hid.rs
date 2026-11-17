@@ -18,6 +18,17 @@ impl HidrawTransport {
             .map_err(|e| Error::Hid(format!("{path}: {e}")))?;
         Ok(HidrawTransport { dev })
     }
+
+    /// The node's HID report descriptor (from sysfs).
+    pub fn report_descriptor(&self) -> Result<Vec<u8>> {
+        let mut buf = vec![0u8; 4096];
+        let n = self
+            .dev
+            .get_report_descriptor(&mut buf)
+            .map_err(|e| Error::Hid(e.to_string()))?;
+        buf.truncate(n);
+        Ok(buf)
+    }
 }
 
 impl HidTransport for HidrawTransport {
@@ -38,6 +49,12 @@ impl HidTransport for HidrawTransport {
     fn read(&mut self, buf: &mut [u8], timeout_ms: u32) -> Result<usize> {
         self.dev
             .read_timeout(buf, timeout_ms.min(i32::MAX as u32) as i32)
+            .map_err(|e| Error::Hid(e.to_string()))
+    }
+
+    fn send_feature(&mut self, data: &[u8]) -> Result<()> {
+        self.dev
+            .send_feature_report(data)
             .map_err(|e| Error::Hid(e.to_string()))
     }
 }

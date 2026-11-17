@@ -12,7 +12,7 @@ from . import color as C
 
 ALL_ID = "all"
 
-STICK, FANS, STRIP = "stick", "fans", "strip"
+STICK, FANS, STRIP, KEYBOARD, SIDEBARS = "stick", "fans", "strip", "keyboard", "sidebars"
 
 # Fully saturated: LEDs render pastel hex values as washed-out white.
 PALETTE: List[C.Rgb] = [
@@ -23,7 +23,7 @@ PALETTE: List[C.Rgb] = [
 
 KIND_ICONS = {
     "motherboard": "board", "dram": "memory", "gpu": "gpu", "fans": "fan",
-    "strip": "strip", "cooler": "cooler", "unknown": "question",
+    "strip": "strip", "cooler": "cooler", "keyboard": "keyboard", "unknown": "question",
 }
 
 DIRECTION_LABELS = {"forward": "Forward", "reverse": "Reverse", "up": "Up", "down": "Down"}
@@ -73,7 +73,7 @@ def all_devices_info() -> dict:
 
 def default_state() -> dict:
     return {"mode": "static", "colors": [C.WHITE], "brightness": 100, "speed": 50,
-            "direction": "", "random": False, "zones": []}
+            "direction": "", "random": False, "zones": [], "switches": {}}
 
 
 def static_state(c: C.Rgb) -> dict:
@@ -112,11 +112,13 @@ def state_from_json(d) -> dict:
         "direction": str(d.get("direction") or ""),
         "random": bool(d.get("random", False)),
         "zones": zones,
+        "switches": {str(k): bool(v) for k, v in (d.get("switches") or {}).items()}
+        if isinstance(d.get("switches"), dict) else {},
     }
 
 
 def state_to_json(s: dict) -> dict:
-    return {
+    out = {
         "mode": s["mode"],
         "colors": [C.to_json(c) for c in s["colors"]],
         "brightness": int(s["brightness"]),
@@ -125,6 +127,9 @@ def state_to_json(s: dict) -> dict:
         "random": bool(s["random"]),
         "zones": [{"id": z["id"], "colors": [C.to_json(c) for c in z["colors"]]} for z in s["zones"]],
     }
+    if s.get("switches"):
+        out["switches"] = {k: bool(v) for k, v in s["switches"].items()}
+    return out
 
 
 def primary_color(s: dict) -> C.Rgb:
@@ -183,6 +188,7 @@ def map_group_state(info: dict, group: dict) -> Optional[dict]:
     }.get(group["mode"], ())
     s = copy.deepcopy(group)
     s["zones"] = []
+    s["switches"] = {}
     for mid in candidates:
         if has(mid):
             s["mode"] = mid
@@ -201,8 +207,12 @@ def map_group_state(info: dict, group: dict) -> Optional[dict]:
 # ------------------------------------------------------------------ presentation
 
 def zone_shape(info: dict, z: dict) -> str:
-    """Fans on addressable headers, sticks for memory, strips otherwise."""
+    """Keys on a keyboard, fans on addressable headers, sticks for memory, strips otherwise."""
     leds = int(z.get("leds", 0))
+    if z.get("keys"):
+        return KEYBOARD
+    if info.get("kind") == "keyboard" and z.get("id") == "sides":
+        return SIDEBARS
     if info.get("kind") == "dram":
         return STICK
     if str(z.get("id", "")).startswith("argb") and leds > 0 and leds % 12 == 0:
@@ -220,12 +230,16 @@ def subtitle(info: dict, s: dict) -> str:
     """Mode name and LED count, e.g. "Rainbow · 63 LEDs"."""
     if info.get("id") == ALL_ID:
         return "Set everything at once"
+    if info.get("locked"):
+        return "Lighting control off"
     m = mode_info(info, s["mode"])
     n = led_count(info)
     return f"{m['name'] if m else s['mode']} · {n} LED{'' if n == 1 else 's'}"
 
 
 def strip_colors(info: dict, s: dict) -> List[C.Rgb]:
+    if info.get("locked"):
+        return []
     return [c for _, cs in preview_colors(info, s) for c in cs]
 
 
@@ -243,7 +257,8 @@ def group_preview(devices: List[Tuple[dict, dict]]) -> List[dict]:
     out = []
     for info, s in devices:
         kind = info.get("kind")
-        tag = {"motherboard": "Board", "dram": "RAM", "gpu": "GPU"}.get(kind) or short_name(info.get("name", ""))
+        tag = {"motherboard": "Board", "dram": "RAM", "gpu": "GPU", "keyboard": "Keyboard"}.get(kind) \
+            or short_name(info.get("name", ""))
         first = True
         zones = info.get("zones", [])
         for z, colors in preview_colors(info, s):
@@ -256,11 +271,13 @@ def group_preview(devices: List[Tuple[dict, dict]]) -> List[dict]:
                 name = zname
             else:
                 name = f"{tag} · {zname}"
-            out.append({"name": name, "shape": zone_shape(info, z), "colors": colors, "row_break": first})
+            out.append({"name": name, "shape": zone_shape(info, z), "colors": colors, "row_break": first,
+                        "keys": z.get("keys") or []})
             first = False
     return out
 
 
 def device_preview(info: dict, s: dict) -> List[dict]:
-    return [{"name": z.get("name", ""), "shape": zone_shape(info, z), "colors": colors, "row_break": False}
+    return [{"name": z.get("name", ""), "shape": zone_shape(info, z), "colors": colors, "row_break": False,
+             "keys": z.get("keys") or []}
             for z, colors in preview_colors(info, s)]

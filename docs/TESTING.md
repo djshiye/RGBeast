@@ -102,6 +102,22 @@ GPU-rendered application took ten seconds to open until a reboot. Discovery clas
 as `Other` and never opens them; `bus_role` has a test for it. Only the `AMDGPU DM i2c OEM bus`
 carries a lighting controller.
 
+## 6b. Glorious GMMK Pro
+
+Not tried on a real keyboard yet. Only Dino tries it, on his own machine.
+
+1. `sudo -u rgbeast /usr/libexec/rgbeastd --scan` lists `Glorious GMMK Pro (gmmk:320f:5044), firmware
+   …, 264-byte reports` (or the size the descriptor gives). `getfacl /dev/hidraw*` shows group
+   `rgbeast` only on the keyboard's two vendor nodes, never on the one that types.
+2. The keyboard's page says **Not Tried on a Real Keyboard Yet**. Nothing has been sent to it:
+   it still shows the lighting it had.
+3. **Turn On Lighting Control**, then **Static** red: the whole board turns red, the side bars too.
+4. **Side Lights** off: only the bars go dark. **Per-Key**: click a few keys; only those change.
+5. **Rainbow** and **Wave 1**, then the speed and brightness sliders.
+6. Switch profile on the board (Fn + the profile keys), change the colour in RGBeast: the board
+   must stay on the profile you chose. If it jumps back, the event interface is not being read.
+7. If anything looks wrong, **Turn Off Lighting Control** and send `journalctl -u rgbeastd -b`.
+
 ## 7. Screenshots and layout checks
 
 The app has a development harness (`python3 -m rgbeast_gui --help`, "development" options). Run it

@@ -186,6 +186,7 @@ impl<T: HidTransport> AuraUsb<T> {
             zones,
             modes: mode_list(),
             can_save: true,
+            ..Default::default()
         };
         Ok(AuraUsb {
             hid,

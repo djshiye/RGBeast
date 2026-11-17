@@ -4,7 +4,7 @@
 //! is `rgbeast_core::DeviceInfo` / `rgbeast_core::DeviceState` (strict: unknown
 //! fields are rejected). Every mutating method is checked with polkit.
 
-use rgbeast_core::{DeviceState, Error};
+use rgbeast_core::{DeviceState, Error, KeyboardOptions};
 use zbus::{fdo, message::Header, object_server::SignalEmitter};
 
 use crate::{
@@ -117,6 +117,46 @@ impl Manager {
         self.authorise(conn, &hdr).await?;
         let list = self.worker.rescan().await.map_err(to_fdo)?;
         serde_json::to_string(&list).map_err(|e| fdo::Error::Failed(e.to_string()))
+    }
+
+    /// Turn control of an untested device on or off. Returns the JSON DeviceInfo.
+    async fn set_unlocked(
+        &self,
+        #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(header)] hdr: Header<'_>,
+        id: String,
+        on: bool,
+    ) -> fdo::Result<String> {
+        self.authorise(conn, &hdr).await?;
+        let info = self.worker.set_unlocked(id, on).await.map_err(to_fdo)?;
+        serde_json::to_string(&info).map_err(|e| fdo::Error::Failed(e.to_string()))
+    }
+
+    /// JSON KeyboardOptions of a Glorious keyboard: profile, layer, debounce.
+    async fn get_keyboard_options(&self, id: String) -> fdo::Result<String> {
+        let o = self.worker.keyboard(id).await.map_err(to_fdo)?;
+        serde_json::to_string(&o).map_err(|e| fdo::Error::Failed(e.to_string()))
+    }
+
+    /// Set a Glorious keyboard's profile, layer and debounce (Wheelguard
+    /// calls this, so the report they share with the lighting has a single
+    /// writer). Returns the JSON KeyboardOptions now in effect.
+    async fn set_keyboard_options(
+        &self,
+        #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(header)] hdr: Header<'_>,
+        id: String,
+        options: String,
+    ) -> fdo::Result<String> {
+        self.authorise(conn, &hdr).await?;
+        if options.len() > 1024 {
+            return Err(fdo::Error::InvalidArgs("options too large".into()));
+        }
+        let o: KeyboardOptions = serde_json::from_str(&options)
+            .map_err(|e| fdo::Error::InvalidArgs(format!("bad options: {e}")))?;
+        o.check().map_err(to_fdo)?;
+        let applied = self.worker.set_keyboard(id, o).await.map_err(to_fdo)?;
+        serde_json::to_string(&applied).map_err(|e| fdo::Error::Failed(e.to_string()))
     }
 
     /// What discovery found and skipped, one line each.

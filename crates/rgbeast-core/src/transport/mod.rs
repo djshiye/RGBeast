@@ -13,6 +13,12 @@ pub trait HidTransport: Send {
     fn write(&mut self, data: &[u8]) -> Result<()>;
     /// Read one input report, waiting at most `timeout_ms`. Returns bytes read.
     fn read(&mut self, buf: &mut [u8], timeout_ms: u32) -> Result<usize>;
+    /// Send one feature report. `data[0]` is the report ID.
+    fn send_feature(&mut self, _data: &[u8]) -> Result<()> {
+        Err(crate::Error::Unsupported(
+            "feature reports are not supported here".into(),
+        ))
+    }
 }
 
 /// One SMBus/I2C adapter. The 7-bit slave address is given per call.

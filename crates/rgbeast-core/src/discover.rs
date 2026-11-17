@@ -9,8 +9,8 @@ use std::{
 
 use crate::{
     Driver,
-    drivers::{aura_usb, ene, fury, sapphire},
-    model::DeviceKind,
+    drivers::{aura_usb, ene, fury, gmmk, sapphire},
+    model::{DeviceKind, KeyboardOptions},
     transport::{hid::HidrawTransport, smbus::LinuxSmbus},
 };
 
@@ -19,6 +19,8 @@ use crate::{
 pub struct DiscoveryConfig {
     /// LED counts per addressable header for each Aura USB controller id.
     pub header_leds: Vec<(String, Vec<u32>)>,
+    /// Last known profile, layer and debounce of each Glorious keyboard.
+    pub keyboard_options: Vec<(String, KeyboardOptions)>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -218,6 +220,7 @@ pub fn discover(config: &DiscoveryConfig) -> Discovered {
     // USB HID controllers.
     match hidapi::HidApi::new() {
         Ok(api) => {
+            discover_gmmk(&api, config, &mut devices, &mut log);
             let mut seen = std::collections::HashSet::new();
             for d in api.device_list() {
                 if d.vendor_id() != aura_usb::VENDOR_ID
@@ -440,6 +443,120 @@ pub fn discover(config: &DiscoveryConfig) -> Discovered {
         }
     }
     Discovered { devices, log }
+}
+
+/// The USB device a hidraw node belongs to (its sysfs directory), so the
+/// two vendor interfaces of one keyboard can be paired.
+fn usb_device_of(devnode: &str) -> Option<PathBuf> {
+    let name = Path::new(devnode).file_name()?;
+    let hid = Path::new("/sys/class/hidraw")
+        .join(name)
+        .join("device")
+        .canonicalize()
+        .ok()?;
+    // .../1-3/1-3:1.2/0003:320F:5044.0003 -> .../1-3
+    Some(hid.parent()?.parent()?.to_path_buf())
+}
+
+/// Glorious GMMK Pro keyboards on their stock firmware. Only the vendor
+/// interfaces are opened (never the one that carries the keys), and
+/// nothing is written: the board keeps its lighting by itself.
+fn discover_gmmk(
+    api: &hidapi::HidApi,
+    config: &DiscoveryConfig,
+    devices: &mut Vec<Box<dyn Driver>>,
+    log: &mut Vec<String>,
+) {
+    let mut seen = std::collections::HashSet::new();
+    for d in api.device_list() {
+        if d.vendor_id() != gmmk::VENDOR_ID
+            || d.usage_page() != gmmk::SETTINGS_PAGE
+            || d.usage() != gmmk::SETTINGS_USAGE
+        {
+            continue;
+        }
+        let Some(model) = gmmk::model(d.product_id()) else {
+            continue;
+        };
+        let path = d.path().to_string_lossy().to_string();
+        if !seen.insert(path.clone()) {
+            continue;
+        }
+        let mut id = format!("gmmk:{:04x}:{:04x}", d.vendor_id(), d.product_id());
+        if devices.iter().any(|x| x.info().id == id) {
+            id = format!("{id}:{}", seen.len());
+        }
+        let hid = match HidrawTransport::open(api, &path) {
+            Ok(t) => t,
+            Err(e) => {
+                log.push(format!("cannot open {path}: {e}"));
+                continue;
+            }
+        };
+        let desc = match hid.report_descriptor() {
+            Ok(d) => d,
+            Err(e) => {
+                log.push(format!("{} {path}: no report descriptor ({e})", model.name));
+                continue;
+            }
+        };
+        if !gmmk::vendor_only(&desc) {
+            log.push(format!(
+                "{} {path}: the settings interface also carries keys; not using it",
+                model.name
+            ));
+            continue;
+        }
+        let report_len = gmmk::feature_report_len(&desc, gmmk::REPORT_ID);
+        let options = config
+            .keyboard_options
+            .iter()
+            .find(|(k, _)| *k == id)
+            .map(|(_, o)| *o)
+            .filter(|o| o.check().is_ok())
+            .unwrap_or_default();
+        let mut dev = match gmmk::Gmmk::new(
+            hid,
+            model,
+            report_len,
+            id.clone(),
+            format!("USB {:04x}:{:04x}", d.vendor_id(), d.product_id()),
+            gmmk::firmware(d.release_number()),
+            options,
+        ) {
+            Ok(dev) => dev,
+            Err(e) => {
+                log.push(format!("{} {path}: {e}", model.name));
+                continue;
+            }
+        };
+        // The event interface of the same board, for profile changes.
+        let parent = usb_device_of(&path);
+        let events = api.device_list().find(|e| {
+            e.vendor_id() == d.vendor_id()
+                && e.product_id() == d.product_id()
+                && e.usage_page() == gmmk::EVENTS_PAGE
+                && e.usage() == gmmk::EVENTS_USAGE
+                && parent.is_some()
+                && usb_device_of(&e.path().to_string_lossy()) == parent
+        });
+        match events.map(|e| HidrawTransport::open(api, &e.path().to_string_lossy())) {
+            Some(Ok(t)) if t.report_descriptor().is_ok_and(|d| gmmk::vendor_only(&d)) => {
+                dev.watch_events(t)
+            }
+            Some(Err(e)) => log.push(format!("{}: events not followed ({e})", model.name)),
+            _ => log.push(format!(
+                "{}: no event interface; profile changes made on the board are not followed",
+                model.name
+            )),
+        }
+        log.push(format!(
+            "{} ({id}), firmware {}, {report_len}-byte reports",
+            model.name,
+            dev.info().version
+        ));
+        devices.push(Box::new(dev));
+    }
 }
 
 /// Where the state file lives when running as the system daemon.

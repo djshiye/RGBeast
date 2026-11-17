@@ -5,7 +5,7 @@
 %global __requires_exclude ^python\\(abi\\)
 
 Name:           rgbeast
-Version:        1.1.0
+Version:        1.2.0
 # CI appends .<commit count> so every build from main is a newer release.
 Release:        1%{?release_suffix}%{?dist}
 Summary:        RGB lighting control for GNOME
@@ -115,6 +115,10 @@ if [ $1 -gt 1 ]; then systemctl try-restart rgbeastd.service >/dev/null 2>&1 || 
 %{_sysconfdir}/pki/rpm-gpg/RPM-GPG-KEY-djshiye-%{name}
 
 %changelog
+* Tue Nov 17 2026 Dino Klisura <115914552+djshiye@users.noreply.github.com> - 1.2.0-1
+- Glorious GMMK Pro lighting: 18 effects, per-key colours, side lights, off until turned on
+- Keyboard preview with painted keys; slider drags no longer queue up on slow devices
+
 * Wed Nov 04 2026 Dino Klisura <115914552+djshiye@users.noreply.github.com> - 1.1.0-1
 - Signed packages and repository; one package for every Fedora release
 - The package installs its own repository file and signing key
