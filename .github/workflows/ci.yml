@@ -131,12 +131,16 @@ jobs:
               python3 -m rgbeast_gui --session --self-test --delay-ms 3000 ${sheet:+--sheet $sheet} 2>&1 | tee -a "$RUNNER_TEMP/gui.log"
             done
             python3 -m rgbeast_gui --session --self-test --device sim:fury --size 600x800 2>&1 | tee -a "$RUNNER_TEMP/gui.log"
+            # The keyboard: locked (untested), then turned on.
+            python3 -m rgbeast_gui --session --self-test --device sim:gmmk-pro --size 600x800 2>&1 | tee -a "$RUNNER_TEMP/gui.log"
+            busctl --user call io.github.djshiye.RGBeast1 /io/github/djshiye/RGBeast1 io.github.djshiye.RGBeast1.Manager SetUnlocked sb sim:gmmk-pro true >/dev/null
+            python3 -m rgbeast_gui --session --self-test --device sim:gmmk-pro 2>&1 | tee -a "$RUNNER_TEMP/gui.log"
             kill "$daemon"'
           if grep -E "^qml: |warning:" "$RUNNER_TEMP/gui.log"; then
             echo "::error::The app printed QML warnings."
             exit 1
           fi
-          test "$(grep -c "self-test: status=ready devices=3 warnings=0" "$RUNNER_TEMP/gui.log")" -eq 7
+          test "$(grep -c "self-test: status=ready devices=4 warnings=0" "$RUNNER_TEMP/gui.log")" -eq 9
 
       - name: Meson build and validation tests
         run: |

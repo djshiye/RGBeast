@@ -66,9 +66,13 @@ class LedPreview(QQuickPaintedItem):
         for z in zones:
             parsed.append({"name": str(z.get("name", "")), "shape": z.get("shape", "strip"),
                            "row_break": bool(z.get("rowBreak", False)),
-                           "colors": [C.from_hex(h) or C.BLACK for h in z.get("colors", [])]})
-        layout_changed = [(z["shape"], len(z["colors"]), z["row_break"], z["name"]) for z in parsed] != \
-            [(z["shape"], len(z["colors"]), z["row_break"], z["name"]) for z in self._zones]
+                           "colors": [C.from_hex(h) or C.BLACK for h in z.get("colors", [])],
+                           "keys": [dict(k) for k in (z.get("keys") or [])]})
+
+        def shape(zs):
+            return [(z["shape"], len(z["colors"]), z["row_break"], z["name"], z["keys"]) for z in zs]
+
+        layout_changed = shape(parsed) != shape(self._zones)
         self._zones = parsed
         if layout_changed:
             self._frame = None
@@ -161,10 +165,13 @@ class LedPreview(QQuickPaintedItem):
             p.drawRoundedRect(QRectF(x + 0.5, y + 0.5, w - 1, h - 1), r, r)
 
         colors = [E.color_at(self._zones, d, t, self._effect) for d in frame.dots]
+        keys = [(d, c) for d, c in zip(frame.dots, colors) if d.rect is not None]
+        if keys:
+            self._paint_keys(p, keys)
         p.setPen(Qt.NoPen)
         # Glow pass, then core pass, so glows never sit on top of cores.
         for d, c in zip(frame.dots, colors):
-            if c == C.BLACK:
+            if c == C.BLACK or d.rect is not None:
                 continue
             gr = d.r * 3.2
             g = QRadialGradient(QPointF(d.x, d.y), gr)
@@ -174,6 +181,8 @@ class LedPreview(QQuickPaintedItem):
             p.setBrush(QBrush(g))
             p.drawEllipse(QPointF(d.x, d.y), gr, gr)
         for d, c in zip(frame.dots, colors):
+            if d.rect is not None:
+                continue
             if c == C.BLACK:
                 p.setBrush(QColor(255, 255, 255, 18))
                 p.drawEllipse(QPointF(d.x, d.y), d.r, d.r)
@@ -194,7 +203,51 @@ class LedPreview(QQuickPaintedItem):
         f.setWeight(QFont.Medium)
         p.setFont(f)
         p.setPen(self._label)
+        self._paint_zone_labels(p, frame)
+
+    def _paint_keys(self, p: QPainter, keys):
+        """Keycaps lit from below: a soft glow under each lit key, the cap tinted with its colour, the
+        legend in a light version of it."""
+        p.setPen(Qt.NoPen)
+        for d, c in keys:
+            if c == C.BLACK:
+                continue
+            gr = max(d.rect[2], d.rect[3]) * 0.75
+            g = QRadialGradient(QPointF(d.x, d.y), gr)
+            g.setColorAt(0.0, _qc(c, 0.30))
+            g.setColorAt(1.0, _qc(c, 0.0))
+            p.setBrush(QBrush(g))
+            p.drawEllipse(QPointF(d.x, d.y), gr, gr)
+        f = QFont(p.font())
+        unit = min((min(d.rect[2], d.rect[3]) for d, _ in keys if d.label), default=30.0)
+        f.setPixelSize(max(7, min(12, int(unit * 0.30))))
+        f.setWeight(QFont.DemiBold)
+        p.setFont(f)
         fm = p.fontMetrics()
+        for d, c in keys:
+            x, y, w, h = d.rect
+            r = QRectF(x, y, w, h)
+            radius = min(max(2.0, unit * 0.14), min(w, h) / 2.0)
+            if c == C.BLACK:
+                p.setPen(QPen(QColor(255, 255, 255, 26), 1.0))
+                p.setBrush(QColor(255, 255, 255, 10))
+                p.drawRoundedRect(r, radius, radius)
+                legend = QColor(255, 255, 255, 70)
+            else:
+                g = QLinearGradient(r.topLeft(), r.bottomLeft())
+                g.setColorAt(0.0, _qc(C.mix(C.BLACK, c, 0.34)))
+                g.setColorAt(1.0, _qc(C.mix(C.BLACK, c, 0.20)))
+                p.setPen(QPen(_qc(c, 0.85), 1.2))
+                p.setBrush(QBrush(g))
+                p.drawRoundedRect(r.adjusted(0.6, 0.6, -0.6, -0.6), radius, radius)
+                legend = _qc(C.mix(c, C.WHITE, 0.65))
+            if d.label and w > 10:
+                p.setPen(legend)
+                p.drawText(r.adjusted(2, 1, -2, -1), Qt.AlignCenter, fm.elidedText(d.label, Qt.ElideRight, int(w - 4)))
+
+    def _paint_zone_labels(self, p: QPainter, frame):
+        fm = p.fontMetrics()
+        p.setPen(self._label)
         for x, y, w, text in frame.labels:
             p.drawText(QRectF(x, y, w, 16), Qt.AlignHCenter | Qt.AlignTop,
                        fm.elidedText(text, Qt.ElideRight, int(w)))

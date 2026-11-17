@@ -12,7 +12,9 @@ pub mod transport;
 
 pub use color::Rgb;
 pub use error::{Error, Result};
-pub use model::{DeviceInfo, DeviceKind, DeviceState, ModeInfo, ZoneInfo, ZoneState};
+pub use model::{
+    DeviceInfo, DeviceKind, DeviceState, KeyboardOptions, ModeInfo, ZoneInfo, ZoneState,
+};
 
 /// A lighting device the daemon can drive.
 pub trait Driver: Send {
@@ -33,6 +35,29 @@ pub trait Driver: Send {
     fn save(&mut self) -> Result<()> {
         Err(Error::Unsupported(
             "this device cannot store a power-on effect".into(),
+        ))
+    }
+
+    /// The device keeps its lighting by itself across power cycles, so the
+    /// daemon never re-sends the stored state at boot or after sleep.
+    fn keeps_state(&self) -> bool {
+        false
+    }
+
+    /// Keyboard settings carried in the lighting report (Glorious keyboards).
+    fn keyboard_options(&self) -> Option<KeyboardOptions> {
+        None
+    }
+
+    /// Change those settings. `lighting` is the state the device shows, so
+    /// the shared report keeps it.
+    fn set_keyboard_options(
+        &mut self,
+        _options: &KeyboardOptions,
+        _lighting: &DeviceState,
+    ) -> Result<()> {
+        Err(Error::Unsupported(
+            "this device has no keyboard settings".into(),
         ))
     }
 

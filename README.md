@@ -6,7 +6,8 @@ A Rust daemon and core with a Qt Quick app (PySide6 + QML) in the audius style (
 delivered as an RPM.
 
 RGBeast drives the lighting of an ASUS Aura motherboard (and the addressable fans plugged into its
-headers), Kingston Fury DDR5 memory and ASUS graphics cards from one window that follows GNOME's
+headers), Kingston Fury DDR5 memory, ASUS and Sapphire graphics cards and the Glorious GMMK Pro
+keyboard from one window that follows GNOME's
 light or dark style and accent colour: a sidebar for navigation, content on cards, neutral chrome,
 and the only saturated colour on screen is the light you chose.
 
@@ -20,6 +21,8 @@ and the only saturated colour on screen is the light you chose.
 |---|---|
 | ![](docs/screenshots/preferences.png) | ![](docs/screenshots/narrow.png) |
 
+![Glorious GMMK Pro, per-key colours](docs/screenshots/gmmk-pro.png)
+
 ## What it controls
 
 | Hardware | How | Status |
@@ -30,6 +33,7 @@ and the only saturated colour on screen is the light you chose.
 | ASUS TUF / ROG Strix / Astral graphics cards (ENE controller at `0x67`) | the card's own I2C bus (kernel 6.15+), direct per-LED colour or 9 hardware effects | implemented, unit-tested, no ASUS card here to try it on |
 | Sapphire Nitro+ / Pure / Toxic graphics cards (Nitro Glow V3 controller at `0x28`), including the RX 9070 XT Pure | the card's own I2C bus (kernel 6.15+), static colour, rainbow, spectrum cycle, runway, serial | implemented, unit-tested, verified on my RX 9070 XT Pure |
 | Other ENE-based memory (G.Skill Trident Z, Geil) and older ASUS Aura SMBus boards | same ENE driver | detected, untested |
+| Glorious GMMK Pro keyboard, ANSI and ISO, stock firmware (`320f:5044` and siblings) | USB HID feature reports on its vendor interface: 18 effects, per-key colours, side lights | implemented from Glorious CORE's protocol, unit-tested, not tried on a real keyboard yet: starts turned off until you turn it on on its page |
 
 The **All Devices** page sets everything at once, choosing the closest effect each device has.
 **Scenes** save the state of every device under a name; "Lights Off" is built in.
@@ -83,7 +87,7 @@ Pages with the last three builds. `sudo dnf upgrade` picks up new builds.
 dnf asks once to trust the signing key (`https://djshiye.github.io/RGBeast/RPM-GPG-KEY-djshiye`).
 The package installs its own `/etc/yum.repos.d/rgbeast.repo` and the key, so the repository stays
 configured; if you added the old per-Fedora repository, the next upgrade replaces its file.
-Each CI build carries a higher release number (`1.1.0-1.<commit count>`), so DNF always sees the
+Each CI build carries a higher release number (`1.2.0-1.<commit count>`), so DNF always sees the
 newest build as an upgrade.
 
 ## Build from source
@@ -117,9 +121,9 @@ Fury sticks and a TUF RX 9070.
 ### Build the RPM
 
 ```bash
-cargo vendor vendor && tar -cJf rgbeast-1.1.0-vendor.tar.xz vendor
-# source tarball named rgbeast-1.1.0.tar.gz with an rgbeast-1.1.0/ prefix
-rpmdev-setuptree && cp rgbeast-1.1.0*.tar.* ~/rpmbuild/SOURCES/
+cargo vendor vendor && tar -cJf rgbeast-1.2.0-vendor.tar.xz vendor
+# source tarball named rgbeast-1.2.0.tar.gz with an rgbeast-1.2.0/ prefix
+rpmdev-setuptree && cp rgbeast-1.2.0*.tar.* ~/rpmbuild/SOURCES/
 rpmbuild -ba build-aux/rgbeast.spec
 ```
 

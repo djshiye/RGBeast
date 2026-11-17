@@ -419,6 +419,7 @@ impl<B: Smbus> Fury<B> {
             zones,
             modes: mode_list(),
             can_save: false,
+            ..Default::default()
         };
         let cache = vec![HashMap::new(); slots.len()];
         Ok(Fury {

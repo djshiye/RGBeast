@@ -160,6 +160,10 @@ class Client(QObject):
             if err:
                 err(FAILED, f"unexpected answer from the service: {e}")
 
+    def set_unlocked(self, dev_id: str, on: bool, ok, err=None):
+        """Turn control of an untested device on or off; answers with its DeviceInfo."""
+        self._call("SetUnlocked", [dev_id, bool(on)], ok, err, timeout=WRITE_TIMEOUT_MS, parse=_json_dict)
+
     def save_to_device(self, dev_id: str, ok, err=None):
         self._call("SaveToDevice", [dev_id], ok, err, timeout=WRITE_TIMEOUT_MS)
 

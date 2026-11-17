@@ -4,10 +4,10 @@ effect. Ported from the GTK crate's led_preview.rs.
 """
 import math
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from . import color as C
-from .model import FANS, STICK, STRIP
+from .model import FANS, KEYBOARD, SIDEBARS, STICK, STRIP
 
 PAD = 18.0
 FAN_D = 74.0
@@ -18,6 +18,12 @@ LABEL_H = 18.0
 PITCH = DOT * 2.0 + 8.0
 
 
+KEY_MAX = 46.0      # largest key, px
+KEY_MAX_SHARED = 26.0
+KEY_GAP = 3.0
+SIDE_UNITS = 0.7    # a side light bar and its gap, in keys
+
+
 @dataclass
 class Dot:
     x: float
@@ -26,6 +32,8 @@ class Dot:
     zone: int
     led: int
     t: float        # 0..1 along the zone, for travelling effects
+    rect: Optional[Tuple[float, float, float, float]] = None    # a keycap: x, y, w, h
+    label: str = ""
 
 
 @dataclass
@@ -44,6 +52,17 @@ def layout(zones: List[dict], width: float) -> Frame:
     for zi, z in enumerate(zones):
         n = len(z["colors"])
         if n == 0:
+            continue
+        if z["shape"] == SIDEBARS:
+            continue        # drawn beside the keyboard
+        if z["shape"] == KEYBOARD and z.get("keys"):
+            keys = z["keys"]
+            units_w = max(k["x"] + k["w"] for k in keys) / 4.0 + 2 * SIDE_UNITS
+            units_h = max(k["y"] + k["h"] for k in keys) / 4.0
+            # Beside other devices (All Devices) the keyboard is drawn smaller.
+            alone = all(o["shape"] in (KEYBOARD, SIDEBARS) for o in zones if o["colors"])
+            unit = min(KEY_MAX if alone else KEY_MAX_SHARED, (usable - 8.0) / units_w)
+            items.append((units_w * unit + 8.0, units_h * unit + 10.0, zi, KEYBOARD, 0, n, unit))
             continue
         if z["shape"] == FANS:
             fans = n // 12
@@ -74,10 +93,34 @@ def layout(zones: List[dict], width: float) -> Frame:
         row_h = max(it[1] for it in items[i:j])
         x = PAD + (usable - row_w) / 2.0
         spans = []      # [zone, x0, x1, label_y]
-        for w, _h, zi, shape, first, count in items[i:j]:
+        for w, _h, zi, shape, first, count, *extra in items[i:j]:
             n_zone = len(zones[zi]["colors"])
             cx = x + w / 2.0
-            if shape == FANS:
+            if shape == KEYBOARD:
+                unit = extra[0]
+                keys = zones[zi]["keys"]
+                left = x + 4.0 + SIDE_UNITS * unit
+                units_w = max(k["x"] + k["w"] for k in keys) / 4.0
+                units_h = max(k["y"] + k["h"] for k in keys) / 4.0
+                side = next((si for si, sz in enumerate(zones) if sz["shape"] == SIDEBARS and sz["colors"]), None)
+                if side is not None:
+                    # The board's side light bars: one light, drawn on both edges.
+                    bw = max(4.0, unit * 0.22)
+                    top = y + 2.0 + unit * 0.4
+                    bh = units_h * unit - unit * 0.8
+                    for bx in (left - SIDE_UNITS * unit * 0.5 - bw / 2,
+                               left + units_w * unit + SIDE_UNITS * unit * 0.5 - bw / 2):
+                        frame.dots.append(Dot(bx + bw / 2, top + bh / 2, bw / 2, side, 0, 0.5, (bx, top, bw, bh)))
+                for k, key in enumerate(keys[:count]):
+                    kx = left + key["x"] / 4.0 * unit + KEY_GAP / 2.0
+                    ky = y + 2.0 + key["y"] / 4.0 * unit + KEY_GAP / 2.0
+                    kw = key["w"] / 4.0 * unit - KEY_GAP
+                    kh = key["h"] / 4.0 * unit - KEY_GAP
+                    cx_k = (key["x"] + key["w"] / 2.0) / 4.0
+                    frame.dots.append(Dot(kx + kw / 2.0, ky + kh / 2.0, min(kw, kh) / 2.0, zi, k,
+                                          cx_k / units_w, (kx, ky, kw, kh), str(key.get("label", ""))))
+                label_y = None
+            elif shape == FANS:
                 cy = y + FAN_D / 2.0 + 2.0
                 r = FAN_D / 2.0
                 frame.outlines.append((cx - r, cy - r, FAN_D, FAN_D, r))
@@ -103,6 +146,9 @@ def layout(zones: List[dict], width: float) -> Frame:
                     led = first + k
                     frame.dots.append(Dot(x0 + k * PITCH, cy, DOT, zi, led, led / max(n_zone, 1)))
                 label_y = cy + DOT + 8.0
+            if label_y is None:
+                x += w
+                continue
             if spans and spans[-1][0] == zi:
                 spans[-1][2] = x + w
                 spans[-1][3] = max(spans[-1][3], label_y)
@@ -133,6 +179,8 @@ def hash01(a: int, b: int) -> float:
 
 
 TAILED = ("comet", "chase-fade", "wind", "fury")
+KEYBOARD_WAVES = ("glorious", "acid", "wave-1", "wave-2", "spiral", "ripple", "pass-without-trace", "fast-run",
+                  "matrix-2", "matrix-3", "heartbeat", "digital-times", "kamehameha", "ping-pong", "surmount")
 FLOORED = ("slide", "wind", "voltage", "fury", "teleport", "slither", "rhythm")
 
 
@@ -151,7 +199,17 @@ def color_at(zones: List[dict], d: Dot, t: float, effect: dict) -> C.Rgb:
     def palette(k):
         return base if not mode_colors else mode_colors[k % len(mode_colors)]
 
-    if mode == "off":
+    if mode in KEYBOARD_WAVES:
+        # Glorious keyboard effects: a wave across the board, in the chosen colour or in rainbow colours.
+        phase = (d.t - sign * t * rate * 0.35) % 1.0
+        many = rnd or not mode_colors
+        if mode in ("acid", "glorious", "rainbow"):
+            out = C.from_hsv((phase * 360.0) % 360.0, 1, 1)
+        else:
+            k = 0.5 + 0.5 * math.cos(phase * math.tau)
+            c = C.from_hsv((phase * 360.0) % 360.0, 1, 1) if many else (mode_colors[0] if mode_colors else base)
+            out = C.scaled(c, int(25 + 75 * k))
+    elif mode == "off":
         out = C.BLACK
     elif mode in ("static", "direct", ""):
         out = base
@@ -193,6 +251,11 @@ def color_at(zones: List[dict], d: Dot, t: float, effect: dict) -> C.Rgb:
 
 def hit(frame: Frame, x: float, y: float):
     """The (zone, led) under a click, or None."""
+    for d in frame.dots:
+        if d.rect is not None:
+            rx, ry, rw, rh = d.rect
+            if rx - KEY_GAP / 2 <= x <= rx + rw + KEY_GAP / 2 and ry - KEY_GAP / 2 <= y <= ry + rh + KEY_GAP / 2:
+                return d.zone, d.led
     best = None
     bd = float("inf")
     for d in frame.dots:

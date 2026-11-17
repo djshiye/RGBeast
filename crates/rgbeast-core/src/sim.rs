@@ -3,14 +3,15 @@
 
 use crate::{
     Driver, Result, Rgb,
-    drivers::{aura_usb, fury, sapphire},
-    model::{DeviceInfo, DeviceKind, DeviceState, ZoneInfo, validate},
+    drivers::{aura_usb, fury, gmmk, sapphire},
+    model::{DeviceInfo, DeviceKind, DeviceState, KeyboardOptions, ZoneInfo, validate},
 };
 
 pub struct SimDevice {
     info: DeviceInfo,
     state: DeviceState,
     saved: bool,
+    keyboard: Option<KeyboardOptions>,
 }
 
 impl SimDevice {
@@ -19,7 +20,13 @@ impl SimDevice {
             info,
             state,
             saved: false,
+            keyboard: None,
         }
+    }
+    /// A Glorious keyboard: keeps its lighting and has keyboard options.
+    pub fn keyboard(mut self) -> Self {
+        self.keyboard = Some(KeyboardOptions::default());
+        self
     }
     pub fn saved(&self) -> bool {
         self.saved
@@ -44,6 +51,20 @@ impl Driver for SimDevice {
         self.saved = true;
         Ok(())
     }
+    fn keeps_state(&self) -> bool {
+        self.keyboard.is_some()
+    }
+    fn keyboard_options(&self) -> Option<KeyboardOptions> {
+        self.keyboard
+    }
+    fn set_keyboard_options(&mut self, o: &KeyboardOptions, _lighting: &DeviceState) -> Result<()> {
+        if self.keyboard.is_none() {
+            return Err(crate::Error::Unsupported("not a keyboard".into()));
+        }
+        o.check()?;
+        self.keyboard = Some(*o);
+        Ok(())
+    }
     fn set_zone_leds(&mut self, zone: &str, leds: u32) -> Result<()> {
         let z = self
             .info
@@ -59,7 +80,27 @@ impl Driver for SimDevice {
     }
 }
 
-/// The three devices of the target machine.
+/// The owner's Glorious GMMK Pro (ANSI), as the stock-firmware driver describes it.
+pub fn gmmk_pro_info() -> DeviceInfo {
+    let model = gmmk::model(0x5044).expect("known board");
+    DeviceInfo {
+        id: "sim:gmmk-pro".into(),
+        name: model.name.into(),
+        vendor: "Glorious".into(),
+        kind: DeviceKind::Keyboard,
+        location: "Simulated USB keyboard".into(),
+        driver: "gmmk".into(),
+        version: gmmk::firmware(0x0045),
+        zones: gmmk::zones(&model),
+        modes: gmmk::modes(),
+        can_save: false,
+        switches: gmmk::switches(),
+        untested: true,
+        locked: false,
+    }
+}
+
+/// The devices of the target machine.
 pub fn devices() -> Vec<Box<dyn Driver>> {
     let board = DeviceInfo {
         id: "sim:aura-usb".into(),
@@ -92,6 +133,7 @@ pub fn devices() -> Vec<Box<dyn Driver>> {
         ],
         modes: aura_usb::modes(),
         can_save: true,
+        ..Default::default()
     };
     let ram = DeviceInfo {
         id: "sim:fury".into(),
@@ -107,6 +149,7 @@ pub fn devices() -> Vec<Box<dyn Driver>> {
         ],
         modes: fury::modes(),
         can_save: false,
+        ..Default::default()
     };
     let gpu = DeviceInfo {
         id: "sim:sapphire-gpu".into(),
@@ -119,6 +162,7 @@ pub fn devices() -> Vec<Box<dyn Driver>> {
         zones: vec![ZoneInfo::fixed("logo", "Logo", 1)],
         modes: sapphire::modes(),
         can_save: false,
+        ..Default::default()
     };
     let mut rainbow = DeviceState {
         mode: "rainbow".into(),
@@ -136,6 +180,17 @@ pub fn devices() -> Vec<Box<dyn Driver>> {
             gpu,
             DeviceState::static_color(Rgb::new(0xFF, 0x00, 0xFF)),
         )),
+        Box::new(
+            SimDevice::new(gmmk_pro_info(), {
+                let mut s = DeviceState {
+                    mode: "glorious".into(),
+                    ..Default::default()
+                };
+                s.colors.clear();
+                s
+            })
+            .keyboard(),
+        ),
     ]
 }
 

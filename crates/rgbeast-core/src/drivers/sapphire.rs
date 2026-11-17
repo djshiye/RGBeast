@@ -141,6 +141,7 @@ impl<B: Smbus> Sapphire<B> {
             zones: vec![ZoneInfo::fixed("logo", "Logo", 1)],
             modes: mode_list(),
             can_save: false,
+            ..Default::default()
         };
         Ok(Sapphire { bus, info })
     }
@@ -210,6 +211,7 @@ impl<B: Smbus> Driver for Sapphire<B> {
             direction: String::new(),
             random: false,
             zones: vec![],
+            ..Default::default()
         }))
     }
 }

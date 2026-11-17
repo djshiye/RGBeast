@@ -55,6 +55,7 @@ Flickable {
 
             // The stage: always dark, lights glow on it.
             Rectangle {
+                visible: page.p.locked !== true
                 Layout.fillWidth: true
                 implicitHeight: preview.contentHeight
                 radius: Theme.rMd + 2
@@ -102,10 +103,67 @@ Flickable {
             }
         }
 
+        // ============================================================ untested device, still locked
+        Card {
+            visible: page.p.locked === true
+            spacing: 14
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 14
+                Rectangle {
+                    Layout.alignment: Qt.AlignTop
+                    implicitWidth: 40; implicitHeight: 40
+                    radius: Theme.rMd
+                    color: Theme.fill
+                    Icon { anchors.centerIn: parent; name: "keyboard"; size: 22; color: Theme.text2 }
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 4
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Not Tried on a Real Keyboard Yet"
+                        color: Theme.text
+                        font.pixelSize: Theme.fsHeadline
+                        font.weight: Font.DemiBold
+                        wrapMode: Text.WordWrap
+                        Accessible.role: Accessible.Heading
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        text: "RGBeast drives the " + (page.p.deviceName || "keyboard") + " the way Glorious’s own app does, "
+                              + "but nobody has tried it on one yet. Until you turn lighting control on, RGBeast sends "
+                              + "nothing to the keyboard and it keeps the lighting it has."
+                        color: Theme.text2
+                        font.pixelSize: Theme.fsBody
+                        wrapMode: Text.WordWrap
+                        lineHeight: 1.15
+                    }
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 12
+                Item { Layout.preferredWidth: page.narrow ? 0 : 40 }
+                Button {
+                    text: "Turn On Lighting Control"
+                    accent: true
+                    onClicked: lighting.setUnlocked(true)
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: "You can turn it off again here."
+                    color: Theme.text3
+                    font.pixelSize: Theme.fsCallout
+                    wrapMode: Text.WordWrap
+                }
+            }
+        }
+
         // ============================================================ effect
         Card {
             title: "Effect"
-            visible: (page.p.modes || []).length > 0
+            visible: (page.p.modes || []).length > 0 && page.p.locked !== true
             Flow {
                 Layout.fillWidth: true
                 spacing: 8
@@ -125,7 +183,7 @@ Flickable {
         Card {
             id: colorCard
             title: "Colour"
-            visible: page.p.usesColors === true
+            visible: page.p.usesColors === true && page.p.locked !== true
             readonly property bool stacked: width < 600
             headerExtra: [
                 Row {
@@ -260,7 +318,8 @@ Flickable {
         // ============================================================ adjust: brightness and motion
         Card {
             title: "Adjust"
-            visible: page.p.hasBrightness === true || page.p.hasMotion === true
+            visible: page.p.locked !== true
+                     && (page.p.hasBrightness === true || page.p.hasMotion === true || (page.p.switches || []).length > 0)
             spacing: 0
 
             SettingRow {
@@ -315,6 +374,21 @@ Flickable {
                     onToggled: lighting.setRandom(checked)
                 }
             }
+            Repeater {
+                model: page.p.switches || []
+                delegate: SettingRow {
+                    required property var modelData
+                    required property int index
+                    divider: index > 0 || page.p.hasBrightness === true || page.p.hasMotion === true
+                    title: modelData.name
+                    description: modelData.description
+                    Switch {
+                        checked: modelData.on
+                        Accessible.name: modelData.name
+                        onToggled: lighting.setSwitch(modelData.id, checked)
+                    }
+                }
+            }
         }
 
         // ============================================================ zones
@@ -342,6 +416,27 @@ Flickable {
                         onValueModified: lighting.resizeZone(lighting.currentId, modelData.id, value)
                     }
                 }
+            }
+        }
+
+        // ============================================================ untested device, turned on
+        RowLayout {
+            visible: page.p.untested === true && page.p.locked !== true
+            Layout.fillWidth: true
+            Layout.leftMargin: 6
+            spacing: 6
+            Text {
+                Layout.fillWidth: true
+                text: "Support for this keyboard has not been confirmed on real hardware yet."
+                color: Theme.text3
+                font.pixelSize: Theme.fsCallout
+                wrapMode: Text.WordWrap
+            }
+            Button {
+                text: "Turn Off Lighting Control"
+                small: true
+                plain: true
+                onClicked: lighting.setUnlocked(false)
             }
         }
     }

@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.2.0 (2026-11-17)
+
+Lighting
+- Glorious GMMK Pro (ANSI and ISO, stock firmware): the keyboard's 18 effects with colour,
+  multicolour, speed and brightness, per-key colours painted on a drawing of the keyboard, and the
+  side light bars (their own colour, on or off). Built from the protocol of Glorious CORE, the
+  vendor's Windows app; see `docs/PROTOCOLS.md`.
+- The keyboard has not been tried on a real one yet, so RGBeast starts with it turned off and
+  sends it nothing until you choose **Turn On Lighting Control** on its page. It can be turned
+  off again there. All Devices and scenes leave a turned-off keyboard alone.
+- The keyboard keeps its lighting by itself, so RGBeast does not re-send it at boot or after sleep.
+- Only the keyboard's two vendor interfaces are given to the daemon (a udev check reads each
+  node's HID descriptor); the interface that carries the keys never is, so the daemon cannot read
+  what is typed.
+- Wheelguard (the keyboard's settings app) sets the debounce through RGBeast, because the board
+  keeps debounce and lighting in the same report. New D-Bus methods for it:
+  `GetKeyboardOptions`, `SetKeyboardOptions`, and `SetUnlocked` for turning a device on or off.
+
+App
+- A slider drag no longer queues up on slow devices: the daemon applies only the newest of the
+  states waiting for a device.
+
 ## 1.1.0 (2026-11-04)
 
 Packaging

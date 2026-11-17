@@ -89,6 +89,9 @@ class Editor:
             "hasRandom": bool(m.get("has_random")),
             "random": self.state["random"],
             "hasMotion": bool(m.get("has_speed")) or len(dirs) >= 2 or bool(m.get("has_random")),
+            "switches": [{"id": sw["id"], "name": sw.get("name", sw["id"]), "description": sw.get("description", ""),
+                          "on": bool(self.state.get("switches", {}).get(sw["id"], sw.get("default", False)))}
+                         for sw in self.info.get("switches", [])],
         }
 
     def preview(self, group_layout: Optional[List[dict]] = None) -> List[dict]:
@@ -212,6 +215,16 @@ class Editor:
         if not (0 <= index < len(dirs)) or self.state["direction"] == dirs[index]:
             return False
         self.state["direction"] = dirs[index]
+        return True
+
+    def set_switch(self, switch_id: str, on: bool) -> bool:
+        sw = next((x for x in self.info.get("switches", []) if x.get("id") == switch_id), None)
+        if sw is None:
+            return False
+        switches = self.state.setdefault("switches", {})
+        if switches.get(switch_id, sw.get("default", False)) == bool(on):
+            return False
+        switches[switch_id] = bool(on)
         return True
 
     def set_random(self, on: bool) -> bool:
