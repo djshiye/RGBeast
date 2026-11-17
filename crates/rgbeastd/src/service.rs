@@ -202,6 +202,28 @@ impl Manager {
     async fn state_changed(emitter: &SignalEmitter<'_>, id: &str, state: &str) -> zbus::Result<()>;
 }
 
+/// Pass every worker event to `emit` until the worker goes away. When this
+/// side falls behind (more than the channel holds while the bus is slow),
+/// the missed events are replaced by one DevicesChanged, which makes the app
+/// reload everything, instead of silently stopping all signals for good.
+pub async fn forward<F, Fut>(mut events: tokio::sync::broadcast::Receiver<Event>, mut emit: F)
+where
+    F: FnMut(Event) -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    use tokio::sync::broadcast::error::RecvError;
+    loop {
+        match events.recv().await {
+            Ok(ev) => emit(ev).await,
+            Err(RecvError::Lagged(n)) => {
+                tracing::warn!("{n} change notifications were dropped; asking clients to reload");
+                emit(Event::DevicesChanged).await;
+            }
+            Err(RecvError::Closed) => break,
+        }
+    }
+}
+
 /// Turn worker events (from restores and rescans) into signals.
 pub async fn emit(conn: &zbus::Connection, ev: Event) {
     let Ok(emitter) = SignalEmitter::new(conn, crate::OBJECT_PATH) else {
@@ -251,4 +273,43 @@ pub async fn watch_sleep(conn: zbus::Connection, worker: Worker, store: Store) -
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rgbeast_core::Rgb;
+
+    /// More changes than the channel holds arrive before the forwarder
+    /// runs: it must say "reload" and keep forwarding, not stop for good.
+    #[tokio::test]
+    async fn forwarding_survives_falling_behind() {
+        let (tx, rx) = tokio::sync::broadcast::channel(4);
+        for i in 0..10u8 {
+            tx.send(Event::StateChanged(
+                "a".into(),
+                DeviceState::static_color(Rgb::new(i, 0, 0)),
+            ))
+            .unwrap();
+        }
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = seen.clone();
+        let task = tokio::spawn(forward(rx, move |ev| {
+            let log = log.clone();
+            async move {
+                log.lock().unwrap().push(match ev {
+                    Event::DevicesChanged => "reload".to_string(),
+                    Event::StateChanged(_, s) => s.primary_color().r.to_string(),
+                });
+            }
+        }));
+        tokio::task::yield_now().await;
+        tx.send(Event::DevicesChanged).unwrap();
+        drop(tx);
+        task.await.unwrap();
+        let seen = seen.lock().unwrap().clone();
+        assert_eq!(seen.first().map(String::as_str), Some("reload"));
+        assert_eq!(seen.last().map(String::as_str), Some("reload"));
+        assert!(seen.contains(&"9".to_string()));
+    }
 }
