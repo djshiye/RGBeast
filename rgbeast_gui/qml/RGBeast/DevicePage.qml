@@ -306,7 +306,7 @@ Flickable {
                                 invalid = !lighting.pickColor(text)
                             }
                             onAccepted: commit()
-                            onActiveFocusChanged: if (!activeFocus) { commit(); if (invalid) { text = page.p.color; invalid = false } }
+                            onActiveFocusChanged: if (!activeFocus) { commit(); if (invalid) { text = Qt.binding(() => page.p.color || ""); invalid = false } }
                             onTextEdited: invalid = false
                         }
                         Item { Layout.fillWidth: true }
