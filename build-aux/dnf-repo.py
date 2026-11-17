@@ -6,6 +6,8 @@
 
 Runs in a Fedora container after the new packages were signed, with the signing key in
 gpg's keyring (repomd.xml is signed with it) and createrepo_c + python3-rpm installed.
+Packages count as signed only when they verify against --key alone, never against keys the
+system happens to trust.
 
 Layout of the site:
     rpm/                   every package (newest --keep builds of each name.arch) + repodata/
@@ -53,9 +55,50 @@ def header(path):
     return name, arch, (epoch, version, release)
 
 
-def signed_ok(path):
-    """True when the package's digests and signature verify against the imported key."""
-    res = subprocess.run(["rpm", "-K", path], capture_output=True, text=True)
+def key_fingerprints(keyfile):
+    """Fingerprints of the primary keys in an armored key file (subkeys left out)."""
+    out = run("gpg", "--batch", "--with-colons", "--import-options", "show-only", "--import",
+              keyfile, capture_output=True).stdout
+    fprs, primary = [], False
+    for line in out.splitlines():
+        kind = line.split(":")[0]
+        if kind == "pub":
+            primary = True
+        elif kind == "fpr" and primary:
+            fprs.append(line.split(":")[9].upper())
+            primary = False
+        elif kind == "sub":
+            primary = False
+    return fprs
+
+
+def check_key(keyfile, expected=None):
+    """The file must hold exactly one key, and the expected one when a fingerprint is given."""
+    fprs = key_fingerprints(keyfile)
+    if len(fprs) != 1:
+        sys.exit(f"{keyfile} must hold exactly one key, found {len(fprs)}")
+    if expected and fprs[0] != expected.replace(" ", "").upper():
+        sys.exit(f"{keyfile} is key {fprs[0]}, expected {expected}")
+    return fprs[0]
+
+
+def keyring(keyfile):
+    """rpm options for a private rpm database and keyring that trust only `keyfile`.
+
+    The system database can trust other keys (Fedora's own, say); checking against it would
+    accept a package signed by any of them.
+    """
+    d = tempfile.mkdtemp(prefix="rpm-keyring-")
+    os.mkdir(os.path.join(d, "pubkeys"))
+    opts = ["--dbpath", d, "--define", "_keyring fs", "--define", f"_keyringpath {d}/pubkeys/"]
+    run("rpmdb", *opts, "--initdb")
+    run("rpmkeys", *opts, "--import", keyfile)
+    return opts
+
+
+def signed_ok(path, opts):
+    """True when the package's digests verify and it is signed by the key in `opts` only."""
+    res = subprocess.run(["rpmkeys", *opts, "--checksig", path], capture_output=True, text=True)
     return res.returncode == 0 and "signatures OK" in res.stdout
 
 
@@ -96,6 +139,7 @@ def main():
     p.add_argument("--site", required=True, help="output directory (created)")
     p.add_argument("--repo-file", required=True)
     p.add_argument("--key", required=True, help="armored public key")
+    p.add_argument("--fingerprint", help="the key's expected fingerprint; anything else fails")
     p.add_argument("--icon", help="SVG icon for the landing page")
     p.add_argument("--prev", help="directory with the previously published packages")
     p.add_argument("--fetch", action="store_true", help="download previous packages from --url")
@@ -109,8 +153,8 @@ def main():
     pool = os.path.join(site, "rpm")
     os.makedirs(pool, exist_ok=True)
 
-    # rpm -K needs the key in the rpm database.
-    run("rpm", "--import", a.key)
+    fpr = check_key(a.key, a.fingerprint)
+    trusted = keyring(a.key)
 
     candidates = []  # (path, is_new)
     for f in sorted(os.listdir(a.new)):
@@ -133,7 +177,7 @@ def main():
         name, arch, evr = header(path)
         if name.endswith(("-debuginfo", "-debugsource")):
             continue
-        if not signed_ok(path):
+        if not signed_ok(path, trusted):
             if new:
                 sys.exit(f"{os.path.basename(path)} is not signed with the repository key")
             log(f"dropping {os.path.basename(path)}: not signed with the repository key")
@@ -157,7 +201,8 @@ def main():
 
     def sign_repomd(repodata):
         repomd = os.path.join(repodata, "repomd.xml")
-        run("gpg", "--batch", "--yes", "--detach-sign", "--armor", "-o", repomd + ".asc", repomd)
+        run("gpg", "--batch", "--yes", "--local-user", fpr, "--detach-sign", "--armor",
+            "-o", repomd + ".asc", repomd)
 
     log("createrepo_c rpm/")
     run("createrepo_c", "--general-compress-type", "gz", pool)
@@ -178,7 +223,6 @@ def main():
     if a.icon:
         shutil.copy2(a.icon, os.path.join(site, "icon.svg"))
     open(os.path.join(site, ".nojekyll"), "w").close()
-    fpr = fingerprint(a.key)
     with open(os.path.join(site, "index.html"), "w") as f:
         # By version, not by file name: "-1.99" sorts after "-1.100" as text.
         main_pkg = newest.get(a.app) or next(iter(newest.values()), None)
@@ -192,12 +236,6 @@ class _Cmp:
 
     def __lt__(self, other):
         return rpm.labelCompare(self.evr, other.evr) < 0
-
-
-def fingerprint(keyfile):
-    out = run("gpg", "--batch", "--with-colons", "--import-options", "show-only", "--import",
-              keyfile, capture_output=True).stdout
-    return next(l.split(":")[9] for l in out.splitlines() if l.startswith("fpr:"))
 
 
 def landing_page(a, fpr, latest_file):
