@@ -254,7 +254,8 @@ impl Default for KeyboardOptions {
         KeyboardOptions {
             profile: 1,
             layer: 1,
-            debounce_ms: 2,
+            // The board's factory setting, so lighting never changes debounce before Wheelguard says.
+            debounce_ms: 16,
         }
     }
 }

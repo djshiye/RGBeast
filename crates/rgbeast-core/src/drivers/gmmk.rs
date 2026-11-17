@@ -875,7 +875,7 @@ mod tests {
         // properties, effect, three per-key pages (cleared), commit
         assert_eq!(f.len(), 6);
         assert!(f.iter().all(|x| x.len() == 264 && x[0] == 7));
-        assert_eq!(&f[0][1..11], &[0x07, 1, 1, 7, 0, 1, 0, 20, 0, 2]);
+        assert_eq!(&f[0][1..11], &[0x07, 1, 1, 7, 0, 1, 0, 20, 0, 16]);
         assert_eq!(f[1][1], 0x02);
         assert_eq!(f[1][2], 7);
         assert_eq!(f[1][8], 50);
