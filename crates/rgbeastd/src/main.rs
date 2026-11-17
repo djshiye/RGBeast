@@ -161,12 +161,10 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Forward hardware-side events (rescans, restores) to D-Bus signals.
-    let mut events = worker.subscribe();
+    let events = worker.subscribe();
     let signal_conn = conn.clone();
     tokio::spawn(async move {
-        while let Ok(ev) = events.recv().await {
-            service::emit(&signal_conn, ev).await;
-        }
+        service::forward(events, |ev| service::emit(&signal_conn, ev)).await;
     });
 
     let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;

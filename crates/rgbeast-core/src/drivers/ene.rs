@@ -33,6 +33,10 @@ const APPLY_VAL: u8 = 0x01;
 const SAVE_VAL: u8 = 0xAA;
 const MAX_BLOCK: usize = 3;
 const MAX_LEDS: usize = 40;
+/// Generation-1 controllers keep 15 bytes of colour per bank: the effect
+/// colours at 0x8010 end where the control registers start at 0x8020, so a
+/// sixth LED would be written over the direct flag, the mode and the speed.
+const MAX_LEDS_V1: usize = 5;
 
 const MODE_OFF: u8 = 0;
 const MODE_STATIC: u8 = 1;
@@ -222,7 +226,7 @@ impl<B: Smbus> Ene<B> {
                 )));
             }
         };
-        let led_count = led_count.min(MAX_LEDS);
+        let led_count = led_count.min(if v2 { MAX_LEDS } else { MAX_LEDS_V1 });
         if led_count == 0 {
             return Err(Error::protocol(format!(
                 "ENE controller '{version}' reports no LEDs"
@@ -438,6 +442,42 @@ mod tests {
         bus.ene.insert((GPU_ADDRESS, REG_CONFIG_TABLE + 0x03), 4);
         bus.ene.insert((GPU_ADDRESS, REG_CONFIG_TABLE + 0x1B), 0x83);
         bus
+    }
+
+    /// A generation-1 DRAM controller whose table claims 8 LEDs.
+    #[test]
+    fn v1_colours_never_reach_the_control_registers() {
+        let mut bus = MockSmbus::with_addresses(&[0x70]);
+        for (i, b) in b"DIMM_LED-0102".iter().enumerate() {
+            bus.ene.insert((0x70, REG_DEVICE_NAME + i as u16), *b);
+        }
+        bus.ene.insert((0x70, REG_CONFIG_TABLE + 0x02), 8);
+        bus.ene.insert((0x70, REG_CONFIG_TABLE + 0x03), 8);
+        let mut d = Ene::new(
+            bus,
+            0x70,
+            "e".into(),
+            "m".into(),
+            DeviceKind::Dram,
+            "l".into(),
+        )
+        .unwrap();
+        assert_eq!(d.info().led_count(), 5);
+        let st = DeviceState::static_color(Rgb::new(10, 20, 30));
+        let st = crate::model::validate(d.info(), &st).unwrap();
+        d.apply(&st).unwrap();
+        // The mode register keeps the mode, not a colour byte.
+        assert_eq!(d.bus().ene[&(0x70, REG_MODE)], MODE_STATIC);
+        assert_eq!(d.bus().ene[&(0x70, REG_SPEED)], 2);
+        let highest = d
+            .bus()
+            .ene
+            .keys()
+            .filter(|(_, r)| (0x8010..0x8020).contains(r))
+            .map(|(_, r)| *r)
+            .max();
+        assert_eq!(highest, Some(REG_COLORS_EFFECT_V1 + 14));
+        assert!(d.read_state().unwrap().is_some());
     }
 
     #[test]

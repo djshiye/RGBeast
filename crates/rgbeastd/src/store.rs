@@ -24,6 +24,26 @@ pub struct Persisted {
     pub keyboard_options: BTreeMap<String, KeyboardOptions>,
 }
 
+/// Replace `path` with `bytes` so that a power cut leaves either the old or
+/// the new file, never an empty one: the data reaches the disk before the
+/// rename, and the rename reaches the disk before this returns. Without the
+/// syncs a crash shortly after a change can leave a zero-length state.json,
+/// and every stored colour, LED count and setting is lost at the next boot.
+fn write_durably(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let tmp = path.with_extension("json.tmp");
+    let mut f = fs::File::create(&tmp)?;
+    f.write_all(bytes)?;
+    f.sync_all()?;
+    drop(f);
+    fs::rename(&tmp, path)?;
+    if let Some(dir) = path.parent() {
+        // Best effort: some file systems cannot sync a directory.
+        fs::File::open(dir).and_then(|d| d.sync_all()).ok();
+    }
+    Ok(())
+}
+
 #[derive(Clone)]
 pub struct Store {
     path: PathBuf,
@@ -71,10 +91,9 @@ impl Store {
             tracing::warn!("cannot create {}: {e}", dir.display());
             return;
         }
-        let tmp = self.path.with_extension("json.tmp");
         match serde_json::to_vec_pretty(data) {
             Ok(bytes) => {
-                if let Err(e) = fs::write(&tmp, bytes).and_then(|_| fs::rename(&tmp, &self.path)) {
+                if let Err(e) = write_durably(&self.path, &bytes) {
                     tracing::warn!("cannot write {}: {e}", self.path.display());
                 }
             }

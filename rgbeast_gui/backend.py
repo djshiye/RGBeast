@@ -104,6 +104,7 @@ class LiquidGlass(QObject):
         base = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
         self._dir = directory or os.path.join(base, "liquid-glass")
         self._tokens: dict = {}
+        self._revision = 0
         self._watcher = None
         self._debounce = QTimer(self, singleShot=True, interval=150, timeout=self.reload)
         self.reload()
@@ -135,6 +136,7 @@ class LiquidGlass(QObject):
                 tokens[scheme] = data
         if tokens != self._tokens:
             self._tokens = tokens
+            self._revision += 1
             self.changed.emit()
         if self._watcher is not None:
             self.watch()            # files that were replaced need re-adding
@@ -153,6 +155,8 @@ class LiquidGlass(QObject):
         return int(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else fallback
 
     active = Property(bool, lambda s: bool(s._tokens), notify=changed)
+    # QML cannot see through color()/number() calls; bindings read this so they re-run on a change.
+    revision = Property(int, lambda s: s._revision, notify=changed)
 
 
 def _hexes(colors) -> List[str]:
@@ -354,6 +358,8 @@ class Lighting(QObject):
 
     def _restore_snapshot(self, snap, message):
         states, group = snap
+        # A pending debounced edit would otherwise land after the restore and undo it.
+        self._apply_timer.stop()
         self.group_state = group
         for dev_id, info in self.infos.items():
             if dev_id in states and not info.get("locked"):
@@ -507,6 +513,12 @@ class Lighting(QObject):
         def err(kind, message):
             self._inflight[dev_id] = max(0, self._inflight.get(dev_id, 1) - 1)
             self._report(kind, message)
+            # Refused (password dialog cancelled, not allowed, unsupported): the page goes back
+            # to what the device really shows instead of keeping the value that never applied.
+            if (dev_id == self.current and seq == self._seq.get(dev_id) and not self._editing(dev_id)
+                    and dev_id in self.states and self.states[dev_id] != self.editor.state):
+                self.editor.adopt(copy.deepcopy(self.states[dev_id]))
+                self._editor_changed()
 
         self.client.set_state(dev_id, M.state_to_json(state), ok, err)
 
@@ -516,7 +528,8 @@ class Lighting(QObject):
                 continue
             mapped = M.map_group_state(info, group)
             if mapped is not None:
-                self._apply_state(dev_id, mapped, adopt=False, feedback=False)
+                # The open device page follows what was applied to it (e.g. Lights Off).
+                self._apply_state(dev_id, mapped, adopt=(dev_id == self.current), feedback=False)
         self.applied.emit()
 
     def _on_state_signal(self, dev_id, state_json):
@@ -594,6 +607,8 @@ class Lighting(QObject):
     @Slot()
     def lightsOff(self):
         snap = self._snapshot()
+        # An edit still waiting for its debounce would otherwise land after this and undo it.
+        self._apply_timer.stop()
         self.group_state = M.off_state()
         if self.current == M.ALL_ID:
             self.editor.load(self.group_info, self.group_state, is_group=True)
@@ -608,6 +623,7 @@ class Lighting(QObject):
         if scene is None:
             return
         snap = self._snapshot()
+        self._apply_timer.stop()
         for dev_id, info in self.infos.items():
             if dev_id in scene["states"] and not info.get("locked"):
                 self._apply_state(dev_id, scene["states"][dev_id], adopt=True, feedback=False)

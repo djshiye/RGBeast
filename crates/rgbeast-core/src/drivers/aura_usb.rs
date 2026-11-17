@@ -20,6 +20,8 @@ const REPORT_LEN: usize = 65;
 const LEDS_PER_DIRECT_PACKET: usize = 20;
 /// Colours carried by one effect-colour packet (60 bytes after the header).
 const EFFECT_COLOR_LEDS: u8 = 20;
+/// LEDs an effect-colour packet can address: its LED mask has 16 bits.
+const EFFECT_MASK_LEDS: u8 = 16;
 const READ_TIMEOUT_MS: u32 = 1000;
 
 const CMD_PREFIX: u8 = 0xEC;
@@ -115,10 +117,11 @@ impl<T: HidTransport> AuraUsb<T> {
         // Documented layout of the 60-byte table.
         let mut onboard_leds = table[0x1B];
         let addressable = table[0x02];
-        if onboard_leds > EFFECT_COLOR_LEDS {
-            // An effect-colour packet carries 20 colours (60 bytes) and a
-            // 16-bit mask; a bigger count would be a misread table.
-            onboard_leds = EFFECT_COLOR_LEDS;
+        if onboard_leds > EFFECT_MASK_LEDS {
+            // An effect-colour packet carries 20 colours (60 bytes) but only
+            // a 16-bit LED mask; a bigger count would be a misread table, and
+            // every effect on the board would fail with it.
+            onboard_leds = EFFECT_MASK_LEDS;
         }
 
         let mut zones = Vec::new();
@@ -260,11 +263,15 @@ impl<T: HidTransport> AuraUsb<T> {
         color: Rgb,
         shutdown: bool,
     ) -> Result<()> {
-        let count = count.min(EFFECT_COLOR_LEDS);
-        if start_led as usize + count as usize > 16 {
-            return Err(Error::Protocol(format!(
-                "effect colour range {start_led}+{count} exceeds the 16-bit LED mask"
-            )));
+        // LEDs past the 16-bit mask cannot be given a colour. Their channel
+        // still gets its effect; failing here instead would stop the whole
+        // board (and every header after it) from changing at all, which is
+        // what happened on boards with many on-board LEDs and headers.
+        let count = count
+            .min(EFFECT_COLOR_LEDS)
+            .min(EFFECT_MASK_LEDS.saturating_sub(start_led));
+        if count == 0 {
+            return Ok(());
         }
         let mask: u16 = (((1u32 << count) - 1) << start_led) as u16;
         let mut p = packet(CMD_EFFECT_COLOR);
@@ -501,6 +508,37 @@ mod tests {
         d.save().unwrap();
         let last = d.transport().written.last().unwrap();
         assert_eq!(last[..3], [0xEC, 0x3F, 0x55]);
+    }
+
+    /// 14 on-board LEDs and 4 headers: headers 3 and 4 sit past the 16-bit
+    /// colour mask. The effect still reaches every channel.
+    #[test]
+    fn channels_past_the_colour_mask_still_change() {
+        let mut cfg = config_reply();
+        cfg[4 + 0x02] = 4;
+        cfg[4 + 0x1B] = 14;
+        let hid = MockHid::with_replies(vec![firmware_reply(), cfg]);
+        let mut d = AuraUsb::new(hid, "x".into(), "x".into(), "x".into(), &[]).unwrap();
+        let n0 = d.transport().written.len();
+        d.apply(&DeviceState::static_color(Rgb::new(1, 2, 3)))
+            .unwrap();
+        let w = &d.transport().written[n0..];
+        let effects: Vec<u8> = w.iter().filter(|p| p[1] == 0x35).map(|p| p[2]).collect();
+        assert!(effects.contains(&3) && effects.contains(&4));
+        // Header 2 (start 15) is the last one with a colour bit.
+        let masks: Vec<u16> = w
+            .iter()
+            .filter(|p| p[1] == 0x36)
+            .map(|p| u16::from(p[2]) << 8 | u16::from(p[3]))
+            .collect();
+        assert_eq!(masks, vec![0x3FFF, 0x4000, 0x8000]);
+        // A table claiming more on-board LEDs than the mask holds is capped.
+        let mut cfg = config_reply();
+        cfg[4 + 0x1B] = 20;
+        let hid = MockHid::with_replies(vec![firmware_reply(), cfg]);
+        let mut d = AuraUsb::new(hid, "x".into(), "x".into(), "x".into(), &[]).unwrap();
+        assert_eq!(d.info().zones[0].leds, 16);
+        d.apply(&DeviceState::static_color(Rgb::WHITE)).unwrap();
     }
 
     #[test]
