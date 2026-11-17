@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0 (2026-11-17)
 
 Look
 - A new look, "Spectral": a deep canvas lit by an ambient wash of the colours your lights are
@@ -11,6 +11,42 @@ Look
 - The preview stage has a faint dot grid and corner marks; sheets float in a soft accent glow, and
   the status line at the bottom of the sidebar has a slow heartbeat while the service is there.
 - The dimmed backdrop behind sheets no longer shows as a grey box past the window's rounded corners.
+
+Using the app
+- Lights Off, applying a scene and deleting a scene show a message with Undo (also Ctrl+Z);
+  deleting a scene no longer asks first.
+- Messages: errors carry a warning mark and stay 7 seconds, hovering holds a message, and a
+  repeated message refreshes the one on screen instead of stacking copies.
+- Scan for Devices says what it found, and cannot be started twice.
+- When the service is not running: Copy Command next to Try Again, and the page says the app
+  reconnects by itself. With no devices found: Open Detection Log.
+- Lights Off and scenes cannot be applied while the service is away.
+- Narrow window: the sidebar keeps the close button.
+- Sidebar: Up and Down move between rows, right-click, the Menu key or Shift+F10 open a scene's
+  menu, full names show on hover, and a hint for saving the first scene.
+- Ctrl+S saves the lighting as a scene (also in the main menu).
+- Hex colour field: accepts #RGB, explains what is wrong, and Escape puts the colour back.
+- The save sheet says Replace when the name is already taken.
+
+Fixes
+- All Devices: a slider drag no longer queues every step, so the lights stop changing as soon as
+  you let go.
+- Devices that are still turned off because they are untested can no longer be written to through
+  "Save to device" or "LED count".
+- Change notifications no longer stop for good after the service falls behind once.
+- Settings are synced to disk before they replace the old file, so a power cut can no longer lose
+  them.
+- ENE first-generation controllers: at most 5 LEDs, so colours are never written over the mode
+  and speed registers. Aura USB: on-board LEDs are capped at 16, so extra LEDs no longer make every
+  effect fail.
+- The GMMK Pro udev rule also matches the keyboard's USB ids.
+- A change the service refused (password dialog cancelled, not allowed, unsupported) no longer
+  stays on the page.
+- Lights Off and scenes update the open device page, and a pending edit can no longer undo them
+  or an Undo.
+- The hex field keeps following the colour after an invalid entry, and Liquid Glass colour changes
+  show at once.
+- RPM upgrades no longer turn the service back on after you turned it off.
 
 Packaging
 - The repository publishes only packages signed with its own key; before, a package signed with

@@ -37,6 +37,13 @@
     <display_length compare="ge">560</display_length>
   </requires>
   <releases>
+    <release version="1.3.0" date="2026-11-17">
+      <description>
+        <p>A new look, Spectral: a deep canvas lit by the colours your lights are showing, glass cards and glowing accents.</p>
+        <p>Undo for Lights Off and scenes, clearer messages, better keyboard use, and many fixes: slider drags no longer lag behind, settings survive a power cut, and untested devices stay untouched until you turn them on.</p>
+        <p>The package repository now accepts only packages signed with its own key.</p>
+      </description>
+    </release>
     <release version="1.2.0" date="2026-11-17">
       <description>
         <p>Lighting for the Glorious GMMK Pro keyboard: its 18 effects, per-key colours and side lights. Support for the keyboard starts turned off until you turn it on, because it has not been tried on a real keyboard yet.</p>
