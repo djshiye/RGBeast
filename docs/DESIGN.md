@@ -50,9 +50,19 @@ neutral, and the only saturated colour on screen is the light you chose.
 - Every control applies at once. Edits are debounced by 70 ms, and the app adopts the state the
   daemon confirms, so a drag never jumps back to an older value.
 - Keyboard: every control takes focus and shows a 2 px accent focus ring. The colour wheel takes
-  the arrow keys (Shift for bigger steps). Shortcuts: `Ctrl+R`/`F5`, `Ctrl+,`, `Ctrl+?`, `Ctrl+W`,
-  `Ctrl+Q`.
+  the arrow keys (Shift for bigger steps); Up and Down move between sidebar rows, and the Menu key
+  or Shift+F10 opens a scene's menu (so does a right-click). Shortcuts: `Ctrl+R`/`F5`, `Ctrl+S`,
+  `Ctrl+Z`, `Ctrl+,`, `Ctrl+?`, `Ctrl+W`, `Ctrl+Q`.
+- Nothing big is a dead end: Lights Off, applying a scene and deleting a scene each show a toast
+  with Undo (also `Ctrl+Z`), so none of them asks "are you sure?" first.
+- Long names cut short in the sidebar show in full on hover. A narrow window keeps the close
+  button in the sidebar's header.
 - Every icon button, swatch and slider has an accessible name.
-- Errors from the service become short toasts: "The lighting service is not running", "Not allowed
-  to change the lighting from this session", or "Could not apply: …". A missing service shows a
-  full page with Try Again, and no devices shows Scan Again.
+- Errors from the service become toasts with a warning mark and a red edge that stay 7 s (info 4 s,
+  with Undo 6 s; pointing at a toast holds it): "The lighting service is not running", "Not allowed
+  to change the lighting from this session", or "Could not apply: …". The same message again
+  refreshes the toast on screen instead of stacking copies. A missing service shows a full page
+  with Try Again and Copy Command (and the app reconnects by itself once the service starts); no
+  devices shows Scan Again and Open Detection Log. A scan ends with a toast saying what it found.
+- The hex field takes `#RRGGBB`, `RRGGBB` or `#RGB`, says what is wrong when it cannot read a
+  colour, and Escape puts the current colour back.

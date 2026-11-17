@@ -146,7 +146,8 @@ motion). Every control applies immediately and the header shows a quiet "Applied
 
 ## Keyboard
 
-`Ctrl+?` lists every shortcut in the app. `Ctrl+R` / `F5` scan for devices · `Ctrl+,` preferences ·
+`Ctrl+?` lists every shortcut in the app. `Ctrl+R` / `F5` scan for devices · `Ctrl+S` save the
+lighting as a scene · `Ctrl+Z` undo Lights Off, a scene or a scene delete · `Ctrl+,` preferences ·
 `Ctrl+W` close · `Ctrl+Q` quit · arrow keys on the colour wheel nudge hue (left/right) and
 brightness (up/down), Shift for bigger steps.
 

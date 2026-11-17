@@ -8,8 +8,11 @@ Item {
     property string title: ""
     property string description: ""
     property string action: ""
+    property bool actionEnabled: true
+    property string secondaryAction: ""
     property bool busy: false
     signal activated()
+    signal secondaryActivated()
 
     ColumnLayout {
         anchors.centerIn: parent
@@ -77,13 +80,22 @@ Item {
             wrapMode: Text.Wrap
             textFormat: Text.StyledText
         }
-        Button {
+        Row {
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: 8
-            visible: sp.action !== ""
-            text: sp.action
-            accent: true
-            onClicked: sp.activated()
+            spacing: 10
+            Button {
+                visible: sp.action !== ""
+                text: sp.action
+                accent: true
+                enabled: sp.actionEnabled
+                onClicked: sp.activated()
+            }
+            Button {
+                visible: sp.secondaryAction !== ""
+                text: sp.secondaryAction
+                onClicked: sp.secondaryActivated()
+            }
         }
     }
 }

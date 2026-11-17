@@ -13,6 +13,7 @@ Item {
     signal renameSceneRequested(string name)
     signal deleteSceneRequested(string name)
     property alias headerLeft: headerLeftSlot.data
+    property alias headerRight: headerRightSlot.data
     readonly property Item menuButton: menuButton
 
     // ------------------------------------------------------------------ header
@@ -62,6 +63,7 @@ Item {
             size: 32
             onClicked: side.menuRequested(menuButton)
         }
+        Row { id: headerRightSlot; spacing: 6; Layout.alignment: Qt.AlignVCenter; Layout.leftMargin: 4 }
     }
 
     // ------------------------------------------------------------------ lists
@@ -101,6 +103,7 @@ Item {
                 Layout.fillWidth: true
                 title: "Lights Off"
                 swatch: [lighting.lightsOffColor]
+                enabled: lighting.status === "ready"
                 onClicked: lighting.lightsOff()
             }
             Repeater {
@@ -112,7 +115,10 @@ Item {
                     title: modelData.name
                     swatch: modelData.colors
                     hasMenu: true
-                    onClicked: lighting.applyScene(modelData.name)
+                    tipText: applicable ? "Apply “" + modelData.name + "”" : "Can be applied once the lighting service is running"
+                    // Rename and delete still work while the service is away; applying does not.
+                    applicable: lighting.status === "ready"
+                    onClicked: if (applicable) lighting.applyScene(modelData.name)
                     onMenuClicked: (anchor) => {
                         sceneMenu.scene = modelData.name
                         sceneMenu.parent = anchor
@@ -125,6 +131,8 @@ Item {
             SideRow {
                 Layout.fillWidth: true
                 title: "Save Current as Scene…"
+                // Until there is a scene, say what scenes are for.
+                subtitle: lighting.scenesList.length === 0 ? "Come back to this look in one click" : ""
                 glyph: "plus"
                 quiet: true
                 enabled: lighting.status === "ready"
@@ -204,6 +212,9 @@ Item {
         property bool selected: false
         property bool quiet: false
         property bool hasMenu: false
+        property string tipText: ""
+        property bool applicable: true
+        readonly property bool isSideRow: true
         signal menuClicked(Item anchor)
 
         implicitHeight: subtitle !== "" ? 58 + (colors.length ? 8 : 0) : 48
@@ -212,7 +223,37 @@ Item {
         Accessible.role: Accessible.ListItem
         Accessible.name: subtitle !== "" ? title + ", " + subtitle : title
         Accessible.selected: selected
+        Accessible.description: hasMenu ? "Press the Menu key for rename and delete" : ""
         opacity: enabled ? 1 : 0.45
+
+        // Up and Down move between rows (Tab still reaches the scene buttons).
+        function step(forward) {
+            let it = row.nextItemInFocusChain(forward)
+            while (it && it !== row && !(it.isSideRow && it.visible && it.enabled))
+                it = it.nextItemInFocusChain(forward)
+            if (it && it !== row)
+                it.forceActiveFocus(forward ? Qt.TabFocusReason : Qt.BacktabFocusReason)
+        }
+        Keys.onDownPressed: step(true)
+        Keys.onUpPressed: step(false)
+        Keys.onMenuPressed: if (hasMenu) row.menuClicked(more)
+        Keys.onPressed: (e) => {
+            if (hasMenu && e.key === Qt.Key_F10 && (e.modifiers & Qt.ShiftModifier)) {
+                row.menuClicked(more)
+                e.accepted = true
+            }
+        }
+        // Right-click opens the scene menu, as it does everywhere else on the desktop.
+        TapHandler {
+            enabled: row.hasMenu
+            acceptedButtons: Qt.RightButton
+            onTapped: row.menuClicked(more)
+        }
+        // Long names are cut short in a 288 px sidebar: show the whole name on hover.
+        Tip {
+            text: row.tipText !== "" ? row.tipText : (titleText.truncated || subText.truncated) ? row.title + (row.subtitle !== "" ? "\n" + row.subtitle : "") : ""
+            shown: row.hovered && !more.hovered
+        }
 
         background: Item {
             Shadow {
@@ -272,14 +313,16 @@ Item {
                     Layout.fillWidth: true
                     spacing: 1
                     Text {
+                        id: titleText
                         Layout.fillWidth: true
                         text: row.title
-                        color: row.quiet ? Theme.text2 : Theme.text
+                        color: row.quiet || !row.applicable ? Theme.text2 : Theme.text
                         font.pixelSize: Theme.fsBody
                         font.weight: row.quiet ? Font.Medium : Font.DemiBold
                         elide: Text.ElideRight
                     }
                     Text {
+                        id: subText
                         Layout.fillWidth: true
                         visible: row.subtitle !== ""
                         text: row.subtitle
@@ -293,7 +336,7 @@ Item {
                     visible: row.hasMenu
                     glyph: "more"
                     tip: "Scene Actions"
-                    opacity: row.hovered || activeFocus || down ? 1 : 0.0
+                    opacity: row.hovered || row.visualFocus || activeFocus || down ? 1 : 0.0
                     Behavior on opacity { NumberAnimation { duration: Theme.fast } }
                     onClicked: row.menuClicked(more)
                 }

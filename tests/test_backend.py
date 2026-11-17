@@ -107,8 +107,8 @@ class LightingTests(unittest.TestCase):
         self.settings = Settings(os.path.join(self.dir.name, "settings.json"))
         self.scenes = SceneStore(os.path.join(self.dir.name, "scenes.json"))
         self.l = Lighting(self.client, self.settings, self.scenes)
-        self.toasts = []
-        self.l.toast.connect(self.toasts.append)
+        self.toasts = []            # (text, kind, action)
+        self.l.toast.connect(lambda text, kind, action: self.toasts.append((text, kind, action)))
         self.l.start()
 
     def tearDown(self):
@@ -182,6 +182,56 @@ class LightingTests(unittest.TestCase):
         self.assertEqual(by_dev["sim:aura"]["mode"], "off")
         self.assertEqual((by_dev["sim:fury"]["mode"], by_dev["sim:fury"]["brightness"]), ("static", 0))
 
+    def test_lights_off_can_be_undone(self):
+        self.l.selectDevice("sim:aura")
+        self.l.pickColor("#FF0000")
+        QTest.qWait(150)
+        self.l.lightsOff()
+        self.assertEqual(self.toasts[-1], ("Lights off", "info", "Undo"))
+        self.assertEqual(self.client.states["sim:aura"]["mode"], "off")
+        self.l.toastAction()
+        self.assertEqual(self.client.states["sim:aura"]["mode"], "static")
+        self.assertEqual(M.state_from_json(self.client.states["sim:aura"])["colors"][0], (255, 0, 0))
+        self.assertEqual(self.l.page["color"], "#FF0000")       # the open page shows it again
+        self.assertEqual(self.toasts[-1], ("Lighting restored", "info", ""))
+        self.client.calls.clear()
+        self.l.toastAction()                                    # one undo only
+        self.assertEqual(self.sets(), [])
+
+    def test_scene_apply_can_be_undone(self):
+        self.l.saveScene("Movie")
+        self.l.lightsOff()
+        self.l.applyScene("Movie")
+        self.assertEqual(self.client.states["sim:aura"]["mode"], "static")
+        self.assertEqual(self.toasts[-1], ("Scene “Movie” applied", "info", "Undo"))
+        self.l.toastAction()                                    # back to the lights-off state
+        self.assertEqual(self.client.states["sim:aura"]["mode"], "off")
+
+    def test_scene_delete_can_be_undone(self):
+        for name in ("A", "B", "C"):
+            self.l.saveScene(name)
+        self.l.deleteScene("B")
+        self.assertEqual([s["name"] for s in self.l.scenesList], ["A", "C"])
+        self.assertEqual(self.toasts[-1], ("Scene “B” deleted", "info", "Undo"))
+        self.l.toastAction()
+        self.assertEqual([s["name"] for s in self.l.scenesList], ["A", "B", "C"])
+        self.assertEqual([s["name"] for s in SceneStore(self.scenes.path).scenes], ["A", "B", "C"])
+
+    def test_rescan_reports_what_it_found(self):
+        self.l.rescan()
+        self.assertFalse(self.l.scanning)
+        self.assertEqual(self.toasts[-1], ("Scan complete: 2 devices, nothing new", "info", ""))
+        gpu = board()
+        gpu["id"] = "sim:other"
+        self.client.infos.append(gpu)
+        self.client.states["sim:other"] = self.client.states["sim:aura"]
+        self.l.rescan()
+        self.assertEqual(self.toasts[-1], ("Found 1 new device", "info", ""))
+
+    def test_short_hex(self):
+        self.assertTrue(self.l.pickColor("#f80"))
+        self.assertEqual(self.l.page["color"], "#FF8800")
+
     def test_scenes(self):
         self.assertTrue(self.l.saveScene("  Movie "))
         self.assertTrue(self.l.sceneExists("Movie"))
@@ -209,7 +259,7 @@ class LightingTests(unittest.TestCase):
         self.client.fail = (DENIED, "")
         self.l.setBrightness(5)
         QTest.qWait(150)
-        self.assertIn("Not allowed to change the lighting from this session", self.toasts)
+        self.assertIn(("Not allowed to change the lighting from this session", "error", ""), self.toasts)
         self.assertEqual(self.l.status, "ready")
 
     def test_unavailable_disconnects_and_retry_recovers(self):

@@ -25,7 +25,8 @@ class ColorTests(unittest.TestCase):
         self.assertEqual(C.from_hex(C.to_hex(c)), c)
         self.assertEqual(C.from_hex("#00ff00"), (0, 255, 0))
         self.assertEqual(C.from_hex("  00FF00 "), (0, 255, 0))
-        for bad in ("zz0000", "#fff", "", "#1234567", None):
+        self.assertEqual(C.from_hex("#f80"), (255, 136, 0))     # CSS shorthand, typed in the hex field
+        for bad in ("zz0000", "#ff", "#ffff", "", "#1234567", None):
             self.assertIsNone(C.from_hex(bad))
 
     def test_hsv_roundtrip(self):
