@@ -73,6 +73,35 @@ enum Cmd {
     SetKeyboard(String, KeyboardOptions, Reply<KeyboardOptions>),
 }
 
+/// Commands taken off the channel ahead of time while merging states. The
+/// channel itself holds 64, so this only bounds a flood of requests.
+const MAX_PENDING: usize = 256;
+
+/// Remove from `pending` every waiting state for `id`, oldest first, up to
+/// the first command that is not a state change (a rescan or a resize must
+/// still see the states sent before it). States for other devices in
+/// between stay in order: the All Devices page sends one state per device
+/// in turn, so merging only neighbours would never merge anything there.
+fn take_newer_sets(
+    pending: &mut VecDeque<Cmd>,
+    id: &str,
+) -> Vec<(DeviceState, Reply<DeviceState>)> {
+    let mut taken = Vec::new();
+    let mut i = 0;
+    while i < pending.len() {
+        match &pending[i] {
+            Cmd::Set(next, _, _) if next == id => {
+                if let Some(Cmd::Set(_, s, r)) = pending.remove(i) {
+                    taken.push((s, r));
+                }
+            }
+            Cmd::Set(..) => i += 1,
+            _ => break,
+        }
+    }
+    taken
+}
+
 #[derive(Clone)]
 pub struct Worker {
     tx: mpsc::Sender<Cmd>,
@@ -125,15 +154,15 @@ impl Worker {
                     // A slider drag sends a state every few milliseconds and
                     // some devices take most of a second per state: apply
                     // only the newest of the waiting states for a device.
-                    while let Ok(c) = rx.try_recv() {
+                    while pending.len() < MAX_PENDING
+                        && let Ok(c) = rx.try_recv()
+                    {
                         pending.push_back(c);
                     }
                     let mut replies = vec![reply];
-                    while matches!(pending.front(), Some(Cmd::Set(next, _, _)) if *next == id) {
-                        if let Some(Cmd::Set(_, s, r)) = pending.pop_front() {
-                            state = s;
-                            replies.push(r);
-                        }
+                    for (s, r) in take_newer_sets(&mut pending, &id) {
+                        state = s;
+                        replies.push(r);
                     }
                     inner.set(id, state, replies);
                 }
@@ -342,11 +371,11 @@ impl Inner {
             }
             Cmd::Set(id, state, r) => self.set(id, state, vec![r]),
             Cmd::SetZoneLeds(id, zone, leds, r) => {
-                let res = (|| {
+                let res = self.check_unlocked(&id).and_then(|_| {
                     let dev = self.find(&id)?;
                     dev.set_zone_leds(&zone, leds)?;
                     Ok(dev.info().clone())
-                })();
+                });
                 if let Ok(info) = &res {
                     if let Some(idx) = info
                         .zones
@@ -369,7 +398,10 @@ impl Inner {
                 r.send(res).ok();
             }
             Cmd::Save(id, r) => {
-                let res = self.find(&id).and_then(|d| d.save());
+                let res = self
+                    .check_unlocked(&id)
+                    .and_then(|_| self.find(&id))
+                    .and_then(|d| d.save());
                 r.send(res).ok();
             }
             Cmd::Rescan(r) => {
@@ -422,5 +454,155 @@ impl Inner {
                 r.send(res).ok();
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rgbeast_core::{Result as CoreResult, Rgb, model::ModeInfo, model::ZoneInfo};
+    use std::sync::{Arc, Mutex};
+
+    /// An untested device that counts every write that reaches it.
+    struct Probe {
+        info: DeviceInfo,
+        writes: Arc<Mutex<u32>>,
+    }
+
+    impl Driver for Probe {
+        fn info(&self) -> &DeviceInfo {
+            &self.info
+        }
+        fn apply(&mut self, _s: &DeviceState) -> CoreResult<()> {
+            *self.writes.lock().unwrap() += 1;
+            Ok(())
+        }
+        fn save(&mut self) -> CoreResult<()> {
+            *self.writes.lock().unwrap() += 1;
+            Ok(())
+        }
+        fn set_zone_leds(&mut self, _zone: &str, leds: u32) -> CoreResult<()> {
+            self.info.zones[0].leds = leds;
+            Ok(())
+        }
+    }
+
+    fn inner_with_locked_probe(dir: &std::path::Path) -> (Inner, Arc<Mutex<u32>>) {
+        let writes = Arc::new(Mutex::new(0));
+        let info = DeviceInfo {
+            id: "probe".into(),
+            name: "Probe".into(),
+            zones: vec![ZoneInfo::sizable("h", "Header", 4, 60)],
+            modes: vec![ModeInfo::new("static", "Static").colors(1, 1)],
+            can_save: true,
+            untested: true,
+            ..Default::default()
+        };
+        let (events, _) = broadcast::channel(8);
+        let mut inner = Inner {
+            simulate: true,
+            store: Store::open(dir),
+            devices: vec![Box::new(Probe {
+                info,
+                writes: writes.clone(),
+            })],
+            states: BTreeMap::new(),
+            locked: BTreeSet::new(),
+            log: Vec::new(),
+            events,
+        };
+        inner.locked.insert("probe".into());
+        inner
+            .states
+            .insert("probe".into(), DeviceState::static_color(Rgb::WHITE));
+        (inner, writes)
+    }
+
+    #[test]
+    fn a_locked_device_is_never_written_to() {
+        let dir = std::env::temp_dir().join(format!("rgbeast-hw-lock-{}", std::process::id()));
+        let (mut inner, writes) = inner_with_locked_probe(&dir);
+
+        let (tx, mut rx) = oneshot::channel();
+        inner.handle(Cmd::Save("probe".into(), tx));
+        assert!(matches!(rx.try_recv(), Ok(Err(Error::Unsupported(_)))));
+
+        let (tx, mut rx) = oneshot::channel();
+        inner.handle(Cmd::SetZoneLeds("probe".into(), "h".into(), 30, tx));
+        assert!(matches!(rx.try_recv(), Ok(Err(Error::Unsupported(_)))));
+
+        let (tx, mut rx) = oneshot::channel();
+        inner.handle(Cmd::Set(
+            "probe".into(),
+            DeviceState::static_color(Rgb::new(1, 2, 3)),
+            tx,
+        ));
+        assert!(matches!(rx.try_recv(), Ok(Err(Error::Unsupported(_)))));
+
+        assert_eq!(*writes.lock().unwrap(), 0, "a locked device was written to");
+
+        // Once the owner turns control on, the same calls go through.
+        inner.locked.clear();
+        let (tx, mut rx) = oneshot::channel();
+        inner.handle(Cmd::Save("probe".into(), tx));
+        assert!(matches!(rx.try_recv(), Ok(Ok(()))));
+        assert_eq!(*writes.lock().unwrap(), 1);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    fn set(id: &str, r: u8) -> (Cmd, oneshot::Receiver<Result<DeviceState, Error>>) {
+        let (tx, rx) = oneshot::channel();
+        (
+            Cmd::Set(id.into(), DeviceState::static_color(Rgb::new(r, 0, 0)), tx),
+            rx,
+        )
+    }
+
+    /// The All Devices page sends A, B, C, A, B, C, ...: the newest state of
+    /// each device is applied once, not every one in turn.
+    #[test]
+    fn interleaved_states_are_merged_per_device() {
+        let mut pending = VecDeque::new();
+        let mut keep = Vec::new();
+        for round in 1..=5u8 {
+            for id in ["b", "c", "a"] {
+                let (c, rx) = set(id, round);
+                pending.push_back(c);
+                keep.push(rx);
+            }
+        }
+        let taken = take_newer_sets(&mut pending, "a");
+        assert_eq!(taken.len(), 5);
+        assert_eq!(taken.last().unwrap().0.primary_color(), Rgb::new(5, 0, 0));
+        // Only b and c are left, in their order.
+        let left: Vec<String> = pending
+            .iter()
+            .map(|c| match c {
+                Cmd::Set(id, s, _) => format!("{id}{}", s.primary_color().r),
+                _ => unreachable!(),
+            })
+            .collect();
+        assert_eq!(
+            left,
+            ["b1", "c1", "b2", "c2", "b3", "c3", "b4", "c4", "b5", "c5"]
+        );
+        assert_eq!(take_newer_sets(&mut pending, "b").len(), 5);
+        assert_eq!(pending.len(), 5);
+    }
+
+    /// A state sent after a rescan is not moved in front of it.
+    #[test]
+    fn merging_stops_at_other_commands() {
+        let mut pending = VecDeque::new();
+        let (c1, _r1) = set("a", 1);
+        let (tx, _r) = oneshot::channel();
+        let (c2, _r2) = set("a", 2);
+        pending.push_back(c1);
+        pending.push_back(Cmd::Rescan(tx));
+        pending.push_back(c2);
+        let taken = take_newer_sets(&mut pending, "a");
+        assert_eq!(taken.len(), 1);
+        assert_eq!(pending.len(), 2);
+        assert!(matches!(pending.front(), Some(Cmd::Rescan(_))));
     }
 }

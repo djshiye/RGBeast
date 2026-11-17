@@ -12,7 +12,7 @@ T.ToolTip {
     y: parent.height + 6
     padding: 0
     implicitWidth: label.implicitWidth + 20
-    implicitHeight: 26
+    implicitHeight: Math.max(26, label.implicitHeight + 10)
     contentItem: Text {
         id: label
         text: tip.text

@@ -140,8 +140,13 @@ def main():
             continue
         groups.setdefault((name, arch), {})[os.path.basename(path)] = (evr, path)
 
+    newest = {}  # binary package name -> (evr, file name) of its newest published build
     for (name, arch), files in sorted(groups.items()):
         order = sorted(files.items(), key=lambda kv: _Cmp(kv[1][0]), reverse=True)
+        if arch != "src" and order:
+            fname, (evr, _) = order[0]
+            if name not in newest or _Cmp(newest[name][0]) < _Cmp(evr):
+                newest[name] = (evr, fname)
         for fname, (_, path) in order[: a.keep]:
             log(f"publish {fname}")
             shutil.copy2(path, os.path.join(pool, fname))
@@ -175,7 +180,9 @@ def main():
     open(os.path.join(site, ".nojekyll"), "w").close()
     fpr = fingerprint(a.key)
     with open(os.path.join(site, "index.html"), "w") as f:
-        f.write(landing_page(a, fpr, sorted(os.listdir(pool))))
+        # By version, not by file name: "-1.99" sorts after "-1.100" as text.
+        main_pkg = newest.get(a.app) or next(iter(newest.values()), None)
+        f.write(landing_page(a, fpr, main_pkg[1] if main_pkg else ""))
     log(f"site ready in {site} (key {fpr})")
 
 
@@ -193,11 +200,10 @@ def fingerprint(keyfile):
     return next(l.split(":")[9] for l in out.splitlines() if l.startswith("fpr:"))
 
 
-def landing_page(a, fpr, files):
+def landing_page(a, fpr, latest_file):
     e = html.escape
     repo_url = f"{a.url}/{a.app}.repo"
-    pkgs = [f for f in files if f.endswith(".rpm") and not f.endswith(".src.rpm")]
-    latest = e(pkgs[-1]) if pkgs else ""
+    latest = e(latest_file)
     fpr_spaced = " ".join(fpr[i:i + 4] for i in range(0, len(fpr), 4))
     icon = '<img class="icon" src="icon.svg" alt="">' if a.icon else ""
     return f"""<!doctype html>

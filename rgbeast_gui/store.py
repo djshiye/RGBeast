@@ -66,6 +66,13 @@ class SceneStore:
         self.scenes.append({"name": name, "states": states})
         return self.save()
 
+    def insert(self, index: int, scene: dict) -> bool:
+        """Put a scene back at its old place (undoing a delete); a scene saved since under the same
+        name is replaced."""
+        self.scenes = [s for s in self.scenes if s["name"] != scene["name"]]
+        self.scenes.insert(max(0, min(index, len(self.scenes))), scene)
+        return self.save()
+
     def remove(self, name: str) -> bool:
         self.scenes = [s for s in self.scenes if s["name"] != name]
         return self.save()

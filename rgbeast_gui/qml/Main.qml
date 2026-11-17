@@ -34,6 +34,13 @@ Window {
     Shortcut { sequences: ["Ctrl+,"]; onActivated: prefsSheet.open() }
     Shortcut { sequences: ["Ctrl+?", "Ctrl+Shift+/"]; onActivated: shortcutsSheet.open() }
     Shortcut {
+        sequences: ["Ctrl+S"]
+        enabled: lighting.status === "ready"
+        onActivated: saveSheet.openFor("")
+    }
+    // Undo the last Lights Off, scene or scene delete (text fields keep Ctrl+Z for themselves).
+    Shortcut { sequences: ["Ctrl+Z"]; onActivated: lighting.toastAction() }
+    Shortcut {
         sequences: ["Alt+Left", "Escape"]
         enabled: win.collapsed && win.showContent
         onActivated: win.showContent = false
@@ -41,7 +48,7 @@ Window {
 
     Connections {
         target: lighting
-        function onToast(text) { toasts.show(text) }
+        function onToast(text, kind, action) { toasts.show(text, kind, action) }
         function onApplied() { applied.flash() }
     }
 
@@ -49,7 +56,10 @@ Window {
     property string demo: ""
     onDemoChanged: {
         if (demo === "menu") sidebar.menuRequested(sidebar.menuButton)
-        else if (demo === "toast") toasts.show("Scene “Movie Night” applied")
+        else if (demo === "toast") {
+            toasts.show("Not allowed to change the lighting from this session", "error", "")
+            toasts.show("Scene “Movie Night” applied", "info", "Undo")
+        }
     }
 
     // Up to three distinct, visible colours from the page's preview: the ambient light's palette.
@@ -148,11 +158,20 @@ Window {
                 }
                 onSaveSceneRequested: saveSheet.openFor("")
                 onRenameSceneRequested: (name) => saveSheet.openFor(name)
-                onDeleteSceneRequested: (name) => { deleteSheet.scene = name; deleteSheet.open() }
+                // Deleting is undoable from the toast, so it does not ask first.
+                onDeleteSceneRequested: (name) => lighting.deleteScene(name)
                 headerLeft: [
                     WindowButtons {
                         visible: appearance.buttonsLeft.length > 0
                         buttons: appearance.buttonsLeft
+                        window: win
+                    }
+                ]
+                // A narrow window shows only the sidebar, so it carries the close button too.
+                headerRight: [
+                    WindowButtons {
+                        visible: win.collapsed && appearance.buttonsRight.length > 0
+                        buttons: appearance.buttonsRight
                         window: win
                     }
                 ]
@@ -268,18 +287,23 @@ Window {
                         visible: lighting.status === "disconnected"
                         icon: "offline"
                         title: "Lighting Service Not Running"
-                        description: "RGBeast talks to a small system service, rgbeastd, which is the only part that touches the hardware. Start it with <b>sudo systemctl enable --now rgbeastd</b>, then try again."
+                        description: "RGBeast talks to a small system service, rgbeastd, which is the only part that touches the hardware. Start it with <b>sudo systemctl enable --now rgbeastd</b> in a terminal. RGBeast connects by itself as soon as it starts."
                         action: "Try Again"
+                        secondaryAction: "Copy Command"
                         onActivated: lighting.retry()
+                        onSecondaryActivated: lighting.copyText("sudo systemctl enable --now rgbeastd")
                     }
                     StatusPage {
                         anchors.fill: parent
                         visible: lighting.status === "empty"
                         icon: "question"
                         title: "No Lighting Devices Found"
-                        description: "Nothing answered on USB or SMBus. Check that the i2c-dev module is loaded and that the service has access to the device nodes, then scan again."
-                        action: "Scan Again"
+                        description: "Nothing answered on USB or SMBus. Check that the i2c-dev module is loaded (<b>sudo modprobe i2c-dev</b>) and that the service can open the device nodes, then scan again. Preferences › Detection Log shows what the service tried."
+                        action: lighting.scanning ? "Scanning…" : "Scan Again"
+                        actionEnabled: !lighting.scanning
+                        secondaryAction: "Open Detection Log"
                         onActivated: lighting.rescan()
+                        onSecondaryActivated: prefsSheet.openLog()
                     }
                 }
             }
@@ -289,6 +313,7 @@ Window {
             id: toasts
             anchors.fill: parent
             z: 20
+            onAction: lighting.toastAction()
         }
 
         // ---------------------------------------------------------- resize edges (frameless)
@@ -323,7 +348,10 @@ Window {
     PopMenu {
         id: mainMenu
         items: [
-            { text: "Scan for Devices", icon: "refresh", action: "rescan", shortcut: "Ctrl+R" },
+            { text: lighting.scanning ? "Scanning…" : "Scan for Devices", icon: "refresh", action: "rescan",
+              shortcut: "Ctrl+R", enabled: !lighting.scanning },
+            { text: "Save as Scene…", icon: "plus", action: "save", shortcut: "Ctrl+S",
+              enabled: lighting.status === "ready" },
             { text: "Preferences", icon: "sliders", action: "prefs", shortcut: "Ctrl+," },
             { separator: true },
             { text: "Keyboard Shortcuts", icon: "keyboard", action: "shortcuts", shortcut: "Ctrl+?" },
@@ -332,6 +360,7 @@ Window {
         onTriggered: (action) => {
             if (action === "rescan") lighting.rescan()
             else if (action === "prefs") prefsSheet.open()
+            else if (action === "save") saveSheet.openFor("")
             else if (action === "shortcuts") shortcutsSheet.open()
             else aboutSheet.open()
         }
@@ -344,6 +373,8 @@ Window {
     Sheet {
         id: saveSheet
         property string renaming: ""
+        readonly property bool replaces: nameField.text.trim() !== "" && nameField.text.trim() !== renaming
+                                         && lighting.scenesList.some(s => s.name === nameField.text.trim())
         function openFor(name) {
             renaming = name
             nameField.text = name
@@ -372,33 +403,19 @@ Window {
         }
         Text {
             Layout.fillWidth: true
-            visible: nameField.text.trim() !== "" && nameField.text.trim() !== saveSheet.renaming && lighting.sceneExists(nameField.text)
+            visible: saveSheet.replaces
             text: "A scene with this name exists and will be replaced."
+            wrapMode: Text.Wrap
             color: Theme.text2
             font.pixelSize: Theme.fsCallout
         }
         buttons: [
             Button { text: "Cancel"; onClicked: saveSheet.close() },
             Button {
-                text: saveSheet.renaming === "" ? "Save" : "Rename"
+                text: saveSheet.replaces ? "Replace" : saveSheet.renaming === "" ? "Save" : "Rename"
                 accent: true
                 enabled: nameField.text.trim() !== ""
                 onClicked: saveSheet.commit()
-            }
-        ]
-    }
-
-    Sheet {
-        id: deleteSheet
-        property string scene: ""
-        title: "Delete Scene “" + scene + "”?"
-        body: "The scene will be removed. Your lights are not changed."
-        buttons: [
-            Button { text: "Cancel"; onClicked: deleteSheet.close() },
-            Button {
-                text: "Delete"
-                danger: true
-                onClicked: { lighting.deleteScene(deleteSheet.scene); deleteSheet.close() }
             }
         ]
     }

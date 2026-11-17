@@ -21,7 +21,7 @@ QtObject {
     property real windowRadius: 0
 
     function pick(role, fallback) {
-        if (!glassy)
+        if (!glassy || glass.revision < 0)   // reading revision re-runs every binding on a token change
             return fallback
         const v = glass.color(dark, role, "")
         return v === "" ? fallback : v
@@ -82,7 +82,7 @@ QtObject {
     readonly property int rXs: 6
     readonly property int rSm: 10
     readonly property int rMd: 14
-    readonly property int rLg: glassy ? glass.number(dark, "radius", 22) : 22
+    readonly property int rLg: glassy && glass.revision >= 0 ? glass.number(dark, "radius", 22) : 22
     readonly property int rXl: 28
     readonly property int gap: 16
     readonly property int titlebar: 52

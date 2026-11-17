@@ -388,10 +388,22 @@ Flickable {
                                 invalid = !lighting.pickColor(text)
                             }
                             onAccepted: commit()
-                            onActiveFocusChanged: if (!activeFocus) { commit(); if (invalid) { text = page.p.color; invalid = false } }
+                            onActiveFocusChanged: if (!activeFocus) { commit(); if (invalid) { text = Qt.binding(() => page.p.color || ""); invalid = false } }
                             onTextEdited: invalid = false
+                            Keys.onEscapePressed: { text = page.p.color || ""; invalid = false; wheel.forceActiveFocus() }
                         }
                         Item { Layout.fillWidth: true }
+                    }
+                    Text {
+                        Layout.fillWidth: true
+                        Layout.topMargin: -10
+                        visible: hex.invalid
+                        text: "Not a colour. Type six hex digits, like #FF8800 (or three, like #F80)."
+                        color: Theme.danger
+                        font.pixelSize: Theme.fsCallout
+                        wrapMode: Text.Wrap
+                        Accessible.role: Accessible.AlertMessage
+                        Accessible.name: text
                     }
                 }
             }

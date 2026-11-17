@@ -7,10 +7,15 @@ Sheet {
     preferredWidth: 420
     readonly property var keys: [
         ["Scan for devices", "Ctrl+R  ·  F5"],
+        ["Save the current lighting as a scene", "Ctrl+S"],
+        ["Undo Lights Off, a scene or a delete", "Ctrl+Z"],
         ["Preferences", "Ctrl+,"],
         ["Keyboard shortcuts", "Ctrl+?"],
         ["Close the window", "Ctrl+W"],
         ["Quit", "Ctrl+Q"],
+        ["Move between devices and scenes", "↑ ↓"],
+        ["Scene menu (rename, delete)", "Menu  ·  Shift+F10"],
+        ["Back to the device list (narrow window)", "Esc  ·  Alt+←"],
         ["Colour wheel: hue / brightness", "← →  /  ↑ ↓  (Shift: ×5)"]
     ]
     Repeater {
