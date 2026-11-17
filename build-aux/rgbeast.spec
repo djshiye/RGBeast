@@ -79,7 +79,8 @@ modprobe i2c-dev >/dev/null 2>&1 || :
 udevadm control --reload >/dev/null 2>&1 || :
 udevadm trigger --subsystem-match=hidraw --subsystem-match=i2c-dev >/dev/null 2>&1 || :
 udevadm settle --timeout=5 >/dev/null 2>&1 || :
-systemctl enable --now rgbeastd.service >/dev/null 2>&1 || :
+# Only on first install: an upgrade must not turn back on a service the owner turned off.
+if [ $1 -eq 1 ]; then systemctl enable --now rgbeastd.service >/dev/null 2>&1 || : ; fi
 # On upgrade the service is already running: pick up the re-owned nodes.
 if [ $1 -gt 1 ]; then systemctl try-restart rgbeastd.service >/dev/null 2>&1 || : ; fi
 
