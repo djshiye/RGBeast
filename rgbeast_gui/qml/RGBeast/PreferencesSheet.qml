@@ -7,6 +7,12 @@ Sheet {
     title: "Preferences"
     preferredWidth: 560
     onAboutToShow: lighting.loadPreferences()
+    // From the "No devices" page: open straight at the detection log.
+    function openLog() {
+        logRow.open = true
+        open()
+        Qt.callLater(() => { fl.contentY = Math.max(0, logBox.y - 40) })
+    }
 
     Flickable {
         id: fl
@@ -69,6 +75,7 @@ Sheet {
                 }
             }
             Rectangle {
+                id: logBox
                 Layout.fillWidth: true
                 visible: logRow.open
                 implicitHeight: logText.implicitHeight + 20

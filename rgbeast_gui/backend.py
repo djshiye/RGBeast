@@ -170,7 +170,9 @@ class Lighting(QObject):
     scenesChanged = Signal()
     prefsChanged = Signal()
     applied = Signal()
-    toast = Signal(str)
+    # A short message at the bottom of the window: text, kind ("info" or "error") and the label of
+    # an action button ("" for none). The action runs `toastAction()`.
+    toast = Signal(str, str, str)
 
     def __init__(self, client: Client, settings: Settings, scenes: SceneStore, parent=None):
         super().__init__(parent)
@@ -193,6 +195,9 @@ class Lighting(QObject):
         self._loading = False
         self._seq: Dict[str, int] = {}          # device id -> sequence of the last set_state sent
         self._inflight: Dict[str, int] = {}
+        self._undo = None                       # what the toast's Undo button runs, while it shows
+        self._scanning = False
+        self._scan_before = 0
 
         self._apply_timer = QTimer(self, singleShot=True, interval=APPLY_DEBOUNCE_MS, timeout=self._apply_now)
         self._reload_timer = QTimer(self, singleShot=True, interval=RELOAD_DEBOUNCE_MS, timeout=self.reload)
@@ -250,7 +255,7 @@ class Lighting(QObject):
         else:
             self._set_status(self._status if self._status != "loading" else "disconnected",
                              "Lighting service not answering")
-            self.toast.emit(friendly(kind, message))
+            self._error(friendly(kind, message))
 
     def _on_list(self, infos: List[dict]):
         if not infos:
@@ -277,6 +282,13 @@ class Lighting(QObject):
     def _after_load(self):
         n = len(self.infos)
         self._refresh_status_text()
+        if self._scanning:
+            self._scanning = False
+            self.statusChanged.emit()
+            if n:
+                found = n - self._scan_before
+                self._info(f"Found {found} new device{'' if found == 1 else 's'}" if found > 0
+                           else f"Scan complete: {n} device{'' if n == 1 else 's'}, nothing new")
         self.devicesChanged.emit()
         self.prefsChanged.emit()
         if n == 0:
@@ -319,7 +331,38 @@ class Lighting(QObject):
     def _report(self, kind, message):
         if kind == UNAVAILABLE:
             self._disconnected()
-        self.toast.emit(friendly(kind, message))
+        self._error(friendly(kind, message))
+
+    def _info(self, text, undo=None):
+        """An info toast; with `undo`, it carries an Undo button that runs it (until the next toast
+        that offers one)."""
+        if undo is not None:
+            self._undo = undo
+        self.toast.emit(text, "info", "Undo" if undo is not None else "")
+
+    def _error(self, text):
+        self.toast.emit(text, "error", "")
+
+    @Slot()
+    def toastAction(self):
+        undo, self._undo = self._undo, None
+        if undo is not None:
+            undo()
+
+    def _snapshot(self):
+        return copy.deepcopy(self.states), copy.deepcopy(self.group_state)
+
+    def _restore_snapshot(self, snap, message):
+        states, group = snap
+        self.group_state = group
+        for dev_id, info in self.infos.items():
+            if dev_id in states and not info.get("locked"):
+                self._apply_state(dev_id, states[dev_id], adopt=True, feedback=False)
+        if self.current == M.ALL_ID:
+            self.editor.load(self.group_info, self.group_state, is_group=True)
+            self._editor_changed()
+        self.applied.emit()
+        self._info(message)
 
     # ================================================================ selection
     @Slot(str)
@@ -427,7 +470,7 @@ class Lighting(QObject):
             self.currentChanged.emit()
             self._editor_changed()
             if on:
-                self.toast.emit(f"Lighting control is on for {info.get('name', 'this device')}")
+                self._info(f"Lighting control is on for {info.get('name', 'this device')}")
 
         self.client.set_unlocked(dev_id, on, ok, self._report)
 
@@ -521,20 +564,28 @@ class Lighting(QObject):
     def storeOnDevice(self):
         if self.current not in self.infos:
             return
-        self.client.save_to_device(self.current, lambda _v: self.toast.emit("Stored as the power-on lighting"),
-                                   self._report)
+        name = self._current_info().get("name", "the device")
+        self.client.save_to_device(
+            self.current, lambda _v: self._info(f"Stored on {name}: it starts with this lighting from now on"),
+            self._report)
 
     @Slot()
     def rescan(self):
         if self._status == "disconnected":
             self.start()
             return
+        if self._scanning:
+            return
+        self._scanning = True
+        self._scan_before = len(self.infos)
         self._set_status(self._status, "Scanning…")
 
         def done(_v=None):
             self.reload()
 
         def err(kind, message):
+            self._scanning = False
+            self.statusChanged.emit()
             self._report(kind, message)
             self.reload()
 
@@ -542,11 +593,13 @@ class Lighting(QObject):
 
     @Slot()
     def lightsOff(self):
+        snap = self._snapshot()
         self.group_state = M.off_state()
         if self.current == M.ALL_ID:
             self.editor.load(self.group_info, self.group_state, is_group=True)
             self._editor_changed()
         self._apply_to_all(self.group_state)
+        self._info("Lights off", undo=lambda: self._restore_snapshot(snap, "Lighting restored"))
 
     # ================================================================ scenes
     @Slot(str)
@@ -554,11 +607,12 @@ class Lighting(QObject):
         scene = self.scenes.get(name)
         if scene is None:
             return
+        snap = self._snapshot()
         for dev_id, info in self.infos.items():
             if dev_id in scene["states"] and not info.get("locked"):
                 self._apply_state(dev_id, scene["states"][dev_id], adopt=True, feedback=False)
         self.applied.emit()
-        self.toast.emit(f"Scene “{name}” applied")
+        self._info(f"Scene “{name}” applied", undo=lambda: self._restore_snapshot(snap, "Previous lighting restored"))
 
     @Slot(str, result=bool)
     def saveScene(self, name):
@@ -567,7 +621,7 @@ class Lighting(QObject):
             return False
         self.scenes.add(name, {d: copy.deepcopy(s) for d, s in self.states.items()})
         self.scenesChanged.emit()
-        self.toast.emit(f"Scene “{name}” saved")
+        self._info(f"Scene “{name}” saved")
         return True
 
     @Slot(str, str, result=bool)
@@ -579,8 +633,28 @@ class Lighting(QObject):
 
     @Slot(str)
     def deleteScene(self, name):
+        index = next((i for i, s in enumerate(self.scenes.scenes) if s["name"] == name), -1)
+        if index < 0:
+            return
+        scene = copy.deepcopy(self.scenes.scenes[index])
         self.scenes.remove(name)
         self.scenesChanged.emit()
+
+        def undo():
+            self.scenes.insert(index, scene)
+            self.scenesChanged.emit()
+            self._info(f"Scene “{name}” is back")
+
+        self._info(f"Scene “{name}” deleted", undo=undo)
+
+    @Slot(str)
+    def copyText(self, text):
+        from PySide6.QtGui import QGuiApplication
+        clip = QGuiApplication.clipboard() if QGuiApplication.instance() else None
+        if clip is None:
+            return
+        clip.setText(text)
+        self._info("Copied to the clipboard")
 
     @Slot(str, result=bool)
     def sceneExists(self, name):
@@ -696,6 +770,7 @@ class Lighting(QObject):
         return out
 
     status = Property(str, lambda s: s._status, notify=statusChanged)
+    scanning = Property(bool, lambda s: s._scanning, notify=statusChanged)
     statusText = Property(str, lambda s: s._status_text, notify=statusChanged)
     simulated = Property(bool, lambda s: s._simulated, notify=statusChanged)
     devices = Property("QVariantList", _device_rows, notify=devicesChanged)

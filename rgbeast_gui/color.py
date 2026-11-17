@@ -15,8 +15,10 @@ def _u8(x: float) -> int:
 
 
 def from_hex(s: str) -> Optional[Rgb]:
-    """`#rrggbb` or `rrggbb`, case-insensitive; anything else is None."""
+    """`#rrggbb`, `rrggbb` or the short `#rgb`, case-insensitive; anything else is None."""
     s = (s or "").strip().lstrip("#")
+    if len(s) == 3:
+        s = "".join(c * 2 for c in s)
     if len(s) != 6 or any(c not in "0123456789abcdefABCDEF" for c in s):
         return None
     v = int(s, 16)
