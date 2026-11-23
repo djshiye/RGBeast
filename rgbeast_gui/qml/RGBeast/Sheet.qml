@@ -42,7 +42,7 @@ T.Popup {
         Rectangle {
             anchors.fill: parent
             radius: Theme.rXl
-            color: Theme.surface2
+            color: Theme.floating
             border.width: 1
             border.color: Theme.hairlineStrong
             Rectangle {

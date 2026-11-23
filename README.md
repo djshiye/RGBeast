@@ -87,7 +87,7 @@ Pages with the last three builds. `sudo dnf upgrade` picks up new builds.
 dnf asks once to trust the signing key (`https://djshiye.github.io/RGBeast/RPM-GPG-KEY-djshiye`).
 The package installs its own `/etc/yum.repos.d/rgbeast.repo` and the key, so the repository stays
 configured; if you added the old per-Fedora repository, the next upgrade replaces its file.
-Each CI build carries a higher release number (`1.3.0-1.<commit count>`), so DNF always sees the
+Each CI build carries a higher release number (`1.3.1-1.<commit count>`), so DNF always sees the
 newest build as an upgrade.
 
 ## Build from source
@@ -121,9 +121,9 @@ Fury sticks and a TUF RX 9070.
 ### Build the RPM
 
 ```bash
-cargo vendor vendor && tar -cJf rgbeast-1.3.0-vendor.tar.xz vendor
-# source tarball named rgbeast-1.3.0.tar.gz with an rgbeast-1.3.0/ prefix
-rpmdev-setuptree && cp rgbeast-1.3.0*.tar.* ~/rpmbuild/SOURCES/
+cargo vendor vendor && tar -cJf rgbeast-1.3.1-vendor.tar.xz vendor
+# source tarball named rgbeast-1.3.1.tar.gz with an rgbeast-1.3.1/ prefix
+rpmdev-setuptree && cp rgbeast-1.3.1*.tar.* ~/rpmbuild/SOURCES/
 rpmbuild -ba build-aux/rgbeast.spec
 ```
 

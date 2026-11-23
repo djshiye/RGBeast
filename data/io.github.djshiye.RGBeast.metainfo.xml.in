@@ -37,6 +37,11 @@
     <display_length compare="ge">560</display_length>
   </requires>
   <releases>
+    <release version="1.3.1" date="2026-11-23">
+      <description>
+        <p>With the Fedora Glass theme on, Preferences, About and Keyboard Shortcuts are now solid: the page no longer shows through them.</p>
+      </description>
+    </release>
     <release version="1.3.0" date="2026-11-17">
       <description>
         <p>A new look, Spectral: a deep canvas lit by the colours your lights are showing, glass cards and glowing accents.</p>

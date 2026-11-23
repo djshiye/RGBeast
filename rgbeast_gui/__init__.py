@@ -1,3 +1,3 @@
 """RGBeast: the Qt Quick app. It never touches hardware; everything goes through rgbeastd over D-Bus."""
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 APP_ID = "io.github.djshiye.RGBeast"

@@ -1,7 +1,9 @@
 """Lighting (the QML-facing backend) against a fake client: loading, the 70 ms debounce, adopting only
 the newest daemon reply, the All Devices mapping, scenes and errors."""
 import copy
+import json
 import os
+import re
 import tempfile
 import unittest
 
@@ -14,7 +16,7 @@ except ImportError:         # the pure-Python tests still run without Qt
     raise unittest.SkipTest("PySide6 is not installed")
 
 from rgbeast_gui import model as M  # noqa: E402
-from rgbeast_gui.backend import Lighting  # noqa: E402
+from rgbeast_gui.backend import Lighting, LiquidGlass  # noqa: E402
 from rgbeast_gui.client import DENIED, UNAVAILABLE  # noqa: E402
 from rgbeast_gui.store import SceneStore, Settings  # noqa: E402
 
@@ -281,6 +283,48 @@ class LightingTests(unittest.TestCase):
         self.l.selectDevice("sim:aura")
         self.l.storeOnDevice()
         self.assertIn(("save", "sim:aura"), self.client.calls)
+
+
+class FloatingColourTests(unittest.TestCase):
+    """The fill for sheets: nothing is blurred behind them, so it must be (nearly) solid."""
+
+    def glass(self, **tokens):
+        d = tempfile.TemporaryDirectory()
+        self.addCleanup(d.cleanup)
+        with open(os.path.join(d.name, "tokens-dark.json"), "w", encoding="utf-8") as f:
+            json.dump({"version": 1, **tokens}, f)
+        return LiquidGlass(d.name)
+
+    def test_floating_token_is_used(self):
+        g = self.glass(floating="#1e2025ff", popover="#1e2025c7")
+        self.assertEqual(g.color(True, "floating", "#fallback"), "#ff1e2025")
+
+    def test_popover_is_made_solid_without_floating(self):
+        self.assertEqual(self.glass(popover="#1e2025c7").color(True, "floating", "#fallback"), "#1e2025")
+        self.assertEqual(self.glass(popover="#1e2025").color(True, "floating", "#fallback"), "#1e2025")
+        self.assertEqual(self.glass(floating="nope", popover="#1e2025c7").color(True, "floating", "#fallback"), "#1e2025")
+
+    def test_fallback_without_either(self):
+        self.assertEqual(self.glass(card="#ffffff12").color(True, "floating", "#fallback"), "#fallback")
+        for popover in ("nope", "#12345", "#zzzzzzzz", 7):
+            self.assertEqual(self.glass(popover=popover).color(True, "floating", "#fallback"), "#fallback", popover)
+        self.assertEqual(self.glass(popover="#1e2025c7").color(False, "floating", "#fallback"), "#fallback")
+
+
+class FloatingSurfaceTests(unittest.TestCase):
+    """Static guard: a sheet floats over the page, so a translucent wash lets the page show through it."""
+
+    SURFACES = {"Sheet.qml": r"color:\s*(Theme\.\w+)\s*\n\s*border\.width"}
+
+    def test_floating_surfaces_use_theme_floating(self):
+        qml = os.path.join(os.path.dirname(__file__), "..", "rgbeast_gui", "qml", "RGBeast")
+        for name, pattern in self.SURFACES.items():
+            with open(os.path.join(qml, name), encoding="utf-8") as f:
+                m = re.search(pattern, f.read())
+            self.assertIsNotNone(m, f"{name}: background fill not found; update this test")
+            self.assertEqual(m.group(1), "Theme.floating",
+                             f"{name} is filled with {m.group(1)}, a wash that turns see-through under the "
+                             "Fedora Glass theme. Use Theme.floating for surfaces drawn over other content.")
 
 
 class EmptyTests(unittest.TestCase):

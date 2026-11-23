@@ -5,7 +5,7 @@
 %global __requires_exclude ^python\\(abi\\)
 
 Name:           rgbeast
-Version:        1.3.0
+Version:        1.3.1
 # CI appends .<commit count> so every build from main is a newer release.
 Release:        1%{?release_suffix}%{?dist}
 Summary:        RGB lighting control for GNOME
@@ -116,6 +116,10 @@ if [ $1 -gt 1 ]; then systemctl try-restart rgbeastd.service >/dev/null 2>&1 || 
 %{_sysconfdir}/pki/rpm-gpg/RPM-GPG-KEY-djshiye-%{name}
 
 %changelog
+* Mon Nov 23 2026 Dino Klisura <115914552+djshiye@users.noreply.github.com> - 1.3.1-1
+- With the Fedora Glass theme on, Preferences, About and Keyboard Shortcuts are solid: the page no longer shows through them
+- A theme colour that is not a valid colour falls back to the app's own colour
+
 * Tue Nov 17 2026 Dino Klisura <115914552+djshiye@users.noreply.github.com> - 1.3.0-1
 - New look, Spectral; Undo for Lights Off and scenes; clearer messages and keyboard use
 - Fixes: slider lag on All Devices, settings safe on power loss, locked devices stay untouched
