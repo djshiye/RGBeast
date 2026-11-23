@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.1 (2026-11-23)
+
+Fixes
+- With the Fedora Glass theme on, Preferences, About and Keyboard Shortcuts are solid: the page no
+  longer shows through them, and their text is easy to read in the light theme.
+- A theme colour that is not a valid colour falls back to the app's own colour.
+
 ## 1.3.0 (2026-11-17)
 
 Look
