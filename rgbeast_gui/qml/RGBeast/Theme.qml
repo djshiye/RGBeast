@@ -44,7 +44,9 @@ QtObject {
     readonly property color bg:        pick("bg", dark ? "#07080c" : "#eceef4")
     // Cards are glass: translucent enough that the ambient light behind them tints them.
     readonly property color surface:   pick("surface", dark ? Qt.rgba(19 / 255, 22 / 255, 31 / 255, 0.80) : Qt.rgba(1, 1, 1, 0.84))
-    readonly property color surface2:  pick("surface2", dark ? "#151822" : "#ffffff")  // raised controls, sheets
+    readonly property color surface2:  pick("surface2", dark ? "#151822" : "#ffffff")  // raised controls
+    // Sheets and anything else drawn over other content with no blur; surface/surface2 are washes for the page.
+    readonly property color floating:  pick("floating", dark ? "#151822" : "#ffffff")
     readonly property color surface3:  pick("surface3", dark ? "#1f2330" : "#f4f5fa")  // hover
     readonly property color sunken:    pick("sunken", dark ? "#05060a" : "#e3e6ef")    // tracks, grooves
     readonly property color sidebar:   dark ? Qt.rgba(1, 1, 1, 0.018) : Qt.rgba(1, 1, 1, 0.45)

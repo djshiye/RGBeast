@@ -3,6 +3,7 @@ owns the D-Bus client, the device list, the editor and the scenes."""
 import copy
 import json
 import os
+import re
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import Property, QObject, QProcess, QTimer, Signal, Slot
@@ -90,10 +91,11 @@ class LiquidGlass(QObject):
 
     changed = Signal()
 
-    # Theme.qml role -> Liquid Glass token
+    # Theme.qml role -> Liquid Glass token. "floating" is the fill of sheets: nothing is blurred behind
+    # them, so a translucent wash lets the window's content show through.
     ROLES = {
         "bg": "window", "surface": "card", "surface2": "active", "surface3": "hover", "sunken": "view",
-        "hairline": "edge", "hairlineStrong": "highlight",
+        "floating": "floating", "hairline": "edge", "hairlineStrong": "highlight",
         "text": "fg", "text2": "fg_dim", "text3": "fg_faint",
         "accent": "accent", "accentText": "accent_text",
         "danger": "destructive", "warning": "warning", "ok": "success",
@@ -144,10 +146,21 @@ class LiquidGlass(QObject):
     @Slot(bool, str, str, result=str)
     def color(self, dark: bool, role: str, fallback: str) -> str:
         """The token colour for a Theme.qml role, or the fallback ("#RRGGBBAA" becomes Qt's "#AARRGGBB")."""
-        value = self._tokens.get("dark" if dark else "light", {}).get(self.ROLES.get(role, ""))
-        if not (isinstance(value, str) and value.startswith("#") and len(value) in (7, 9)):
+        tokens = self._tokens.get("dark" if dark else "light", {})
+        value = tokens.get(self.ROLES.get(role, ""))
+        if role == "floating" and not self._valid(value):
+            # Fedora Glass up to 1.7.9 has no "floating" token: its menu colour, made solid, stands in.
+            # (Even 3 % of see-through leaves a heading behind a sheet readable.)
+            value = tokens.get("popover")
+            if self._valid(value):
+                value = value[:7]
+        if not self._valid(value):
             return fallback
         return value if len(value) == 7 else "#" + value[7:9] + value[1:7]
+
+    @staticmethod
+    def _valid(value) -> bool:
+        return isinstance(value, str) and re.fullmatch(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?", value) is not None
 
     @Slot(bool, str, int, result=int)
     def number(self, dark: bool, name: str, fallback: int) -> int:
