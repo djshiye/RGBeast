@@ -8,6 +8,15 @@ Item {
     id: root
     signal action()
     property int serial: 0
+    // A toast on screen still offers its action (Ctrl+Z follows the Undo button: gone with it).
+    property bool offersAction: false
+
+    function refreshAction() {
+        let any = false
+        for (let i = 0; i < model.count; i++)
+            if (model.get(i).actionLabel !== "") any = true
+        offersAction = any
+    }
 
     function show(text, kind, actionLabel) {
         kind = kind || "info"
@@ -20,16 +29,19 @@ Item {
             if (model.get(i).text === text && model.get(i).kind === kind) {
                 model.setProperty(i, "actionLabel", actionLabel)
                 model.setProperty(i, "serial", ++serial)
+                refreshAction()
                 return
             }
         }
         model.append({ "text": text, "kind": kind, "actionLabel": actionLabel, "serial": ++serial })
         if (model.count > 3)
             model.remove(0)
+        refreshAction()
     }
     function dismiss(serial) {
         for (let i = 0; i < model.count; i++)
-            if (model.get(i).serial === serial) { model.remove(i); return }
+            if (model.get(i).serial === serial) { model.remove(i); break }
+        refreshAction()
     }
     ListModel { id: model }
     Column {
