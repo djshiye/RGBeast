@@ -39,7 +39,8 @@ Window {
         onActivated: saveSheet.openFor("")
     }
     // Undo the last Lights Off, scene or scene delete (text fields keep Ctrl+Z for themselves).
-    Shortcut { sequences: ["Ctrl+Z"]; onActivated: lighting.toastAction() }
+    // Only while its toast still shows the Undo button, so an old undo never fires minutes later.
+    Shortcut { sequences: ["Ctrl+Z"]; enabled: toasts.offersAction; onActivated: lighting.toastAction() }
     Shortcut {
         sequences: ["Alt+Left", "Escape"]
         enabled: win.collapsed && win.showContent
